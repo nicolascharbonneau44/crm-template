@@ -3,11 +3,13 @@ import { headers } from "next/headers";
 import { listCustomColumns } from "@/lib/custom-columns";
 import { formatDateTime } from "@/lib/labels";
 import { MCP_TOOLS } from "@/lib/mcp/registry";
-import { listConnections, mcpResourceUrl } from "@/lib/oauth";
+import { listConnections, mcpResourceUrl, publicBaseUrl } from "@/lib/oauth";
+import { getMeetMagnetWebhook, listMeetMagnetDeliveries, webhookUrl } from "@/lib/webhooks/meetmagnet";
+import type { PersonCategory, PersonState } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { isMailConfigured, mailSender } from "@/lib/mailer";
 import { ImportWizard } from "./import-wizard";
-import { ChangePasswordForm, ClaudeConnect, RevokeButton } from "./settings-client";
+import { ChangePasswordForm, ClaudeConnect, MeetMagnetSettings, RevokeButton } from "./settings-client";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,7 @@ const KIND_LABELS = {
 const TABS = [
   { id: "connexions", label: "Connexions MCP" },
   { id: "import", label: "Import & enrichissement" },
+  { id: "integrations", label: "Intégrations" },
   { id: "compte", label: "Mon compte" },
 ] as const;
 
@@ -43,8 +46,79 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
           </Link>
         ))}
       </nav>
-      {tab === "import" ? <ImportSettings /> : tab === "compte" ? <AccountSettings /> : <McpSettings />}
+      {tab === "import" ? (
+        <ImportSettings />
+      ) : tab === "integrations" ? (
+        <IntegrationsSettings />
+      ) : tab === "compte" ? (
+        <AccountSettings />
+      ) : (
+        <McpSettings />
+      )}
     </div>
+  );
+}
+
+const DELIVERY_BADGES: Record<string, { label: string; badge: string }> = {
+  created: { label: "Créé", badge: "badge-green" },
+  updated: { label: "Mis à jour", badge: "badge-blue" },
+  duplicate: { label: "Doublon ignoré", badge: "badge-gray" },
+  test: { label: "Test", badge: "badge-violet" },
+  error: { label: "Erreur", badge: "badge-red" },
+};
+
+async function IntegrationsSettings() {
+  const [webhook, deliveries] = await Promise.all([getMeetMagnetWebhook(), listMeetMagnetDeliveries()]);
+  const url = webhookUrl(publicBaseUrl(await headers()), webhook.token);
+  return (
+    <>
+      <section className="settings-section">
+        <h2>MeetMagnet — réponses des prospects</h2>
+        <p>
+          Chaque réponse d’un prospect dans MeetMagnet crée ou complète le contact (source « MeetMagnet »), le rattache
+          à son entreprise et ajoute une action « Répondre » avec le message et la conversation.
+        </p>
+        <MeetMagnetSettings
+          url={url}
+          defaultCategory={webhook.defaultCategory as PersonCategory}
+          defaultState={webhook.defaultState as PersonState}
+          createTask={webhook.createTask}
+        />
+      </section>
+      <section className="settings-section">
+        <h2>Derniers webhooks reçus</h2>
+        {deliveries.length === 0 ? (
+          <p className="muted">Rien reçu pour le moment. Utilisez « Tester l’envoi » dans MeetMagnet pour vérifier.</p>
+        ) : (
+          <div className="table-wrap" style={{ border: "1px solid var(--line)", borderRadius: 8 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Reçu le</th>
+                  <th>Résultat</th>
+                  <th>Détail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deliveries.map((d) => (
+                  <tr key={d.id}>
+                    <td className="muted">{formatDateTime(d.receivedAt)}</td>
+                    <td>
+                      <span className={`badge ${DELIVERY_BADGES[d.status]?.badge ?? "badge-gray"}`}>
+                        {DELIVERY_BADGES[d.status]?.label ?? d.status}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 13 }}>
+                      {d.contactId ? <Link href={`/contacts?contact=${d.contactId}`}>{d.summary}</Link> : d.summary}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 

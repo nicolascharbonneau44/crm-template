@@ -35,6 +35,8 @@ export type ImportResult = {
   companies: { createdIds: string[]; updatedIds: string[] };
   errors: { line: number; message: string }[];
   warnings: string[];
+  /** Contact créé ou retrouvé pour chaque ligne (null si aucun). */
+  contactIds: (string | null)[];
 };
 
 export class ImportValidationError extends Error {}
@@ -179,6 +181,7 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
     companies: { createdIds: [], updatedIds: [] },
     errors: [],
     warnings: [],
+    contactIds: req.rows.map(() => null),
   };
   const warn = (message: string) => {
     if (!result.warnings.includes(message) && result.warnings.length < 20) result.warnings.push(message);
@@ -341,10 +344,12 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
           userId,
         );
         indexContact(created);
+        result.contactIds[index] = created.id;
         result.contacts.created++;
         continue;
       }
 
+      result.contactIds[index] = existingId;
       const current = await prisma.contact.findUnique({ where: { id: existingId } });
       if (!current || req.onExisting === "skip") {
         result.contacts.unchanged++;

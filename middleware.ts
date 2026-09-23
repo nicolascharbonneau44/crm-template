@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/api/auth/reset-password",
   "/api/mcp",
   "/api/oauth",
+  "/api/webhooks",
 ];
 
 async function hasValidSession(token: string) {

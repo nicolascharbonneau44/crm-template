@@ -240,6 +240,14 @@ Exemple de demande à Claude une fois branché :
 - **Cursor** : ajoutez un serveur MCP avec l’URL `https://VOTRE-URL-RAILWAY/api/mcp` ; la connexion se fait par la même page d’autorisation.
 - **Script / outil sans OAuth** : en-tête `Authorization: Bearer <MCP_TOKEN>`.
 
+### 8.0 MeetMagnet (webhook entrant)
+
+**Paramètres → Intégrations** affiche une URL secrète `…/api/webhooks/meetmagnet/<jeton>`.
+Dans MeetMagnet → Webhooks, événement « À la réponse » (et, si vous voulez, « Nouveau prospect créé »), collez cette URL.
+Chaque réponse crée ou complète le contact (source « MeetMagnet », entreprise liée, effectif estimé) et ajoute une action
+« Répondre » avec le message et la conversation. Les doublons sont ignorés, le « Tester l’envoi » de MeetMagnet ne crée rien.
+Catégorie / état des nouveaux contacts réglables ; « Générer une nouvelle URL » révoque l’ancienne.
+
 ### 8.1 Ajouter un outil MCP (pour l’IA qui modifie le code)
 
 Le connecteur est pensé pour évoluer avec le CRM :
