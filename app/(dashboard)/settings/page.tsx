@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { headers } from "next/headers";
+import { listCustomColumns } from "@/lib/custom-columns";
 import { formatDateTime } from "@/lib/labels";
 import { MCP_TOOLS } from "@/lib/mcp/registry";
 import { listConnections, mcpResourceUrl } from "@/lib/oauth";
+import { ImportWizard } from "./import-wizard";
 import { ClaudeConnect, RevokeButton } from "./settings-client";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +15,15 @@ const KIND_LABELS = {
   delete: { label: "Suppression", badge: "badge-red" },
 } as const;
 
-export default async function SettingsPage() {
-  const mcpUrl = mcpResourceUrl(await headers());
-  const connections = await listConnections();
+const TABS = [
+  { id: "connexions", label: "Connexions MCP" },
+  { id: "import", label: "Import & enrichissement" },
+] as const;
+
+type SearchParams = Promise<{ tab?: string }>;
+
+export default async function SettingsPage({ searchParams }: { searchParams: SearchParams }) {
+  const tab = (await searchParams).tab === "import" ? "import" : "connexions";
 
   return (
     <div className="page">
@@ -23,7 +32,39 @@ export default async function SettingsPage() {
           <h1>Paramètres</h1>
         </div>
       </div>
+      <nav className="settings-tabs">
+        {TABS.map((t) => (
+          <Link key={t.id} href={`/settings?tab=${t.id}`} className={tab === t.id ? "active" : ""}>
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+      {tab === "import" ? <ImportSettings /> : <McpSettings />}
+    </div>
+  );
+}
 
+async function ImportSettings() {
+  const [contact, company] = await Promise.all([listCustomColumns("contact"), listCustomColumns("company")]);
+  const pick = (list: typeof contact) => list.map(({ key, label, type }) => ({ key, label, type }));
+  return (
+    <section className="settings-section wide">
+      <h2>Importer des contacts ou des entreprises</h2>
+      <p>
+        Ajoutez un fichier (CSV, Excel, Google Sheets…) : les colonnes sont associées automatiquement aux champs du CRM,
+        vous ajustez si besoin. Les fiches déjà présentes sont complétées plutôt que dupliquées.
+      </p>
+      <ImportWizard customColumns={{ contact: pick(contact), company: pick(company) }} />
+    </section>
+  );
+}
+
+async function McpSettings() {
+  const mcpUrl = mcpResourceUrl(await headers());
+  const connections = await listConnections();
+
+  return (
+    <>
       <section className="settings-section">
         <h2>Connecteur Claude</h2>
         <p>
@@ -114,6 +155,6 @@ export default async function SettingsPage() {
           <code>Authorization: Bearer &lt;MCP_TOKEN&gt;</code> (variable définie dans Railway).
         </p>
       </section>
-    </div>
+    </>
   );
 }

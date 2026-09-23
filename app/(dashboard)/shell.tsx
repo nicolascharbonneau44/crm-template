@@ -9,7 +9,6 @@ const links = [
   { href: "/companies", label: "Entreprises" },
   { href: "/actions", label: "Actions" },
   { href: "/stats", label: "Statistiques" },
-  { href: "/settings", label: "Paramètres" },
 ];
 
 export function AppShell({
@@ -45,6 +44,13 @@ export function AppShell({
           })}
         </nav>
         <div className="sidebar-footer">
+          <Link
+            href="/settings"
+            className={`nav-settings ${pathname.startsWith("/settings") ? "active" : ""}`}
+            onClick={() => setOpen(false)}
+          >
+            Paramètres
+          </Link>
           {userEmail ? <div className="nav-user">{userEmail}</div> : null}
           <button className="nav-logout" type="button" onClick={() => void logout()}>
             Déconnexion

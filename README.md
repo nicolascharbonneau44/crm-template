@@ -126,6 +126,7 @@ Menu de gauche :
 - **Entreprises** : les sociétés
 - **Actions** : tâches / appels / emails / RDV
 - **Statistiques** : vue d’ensemble
+- **Paramètres** (en bas à gauche) : connexions MCP (Claude…) et import / enrichissement
 
 Gestes utiles :
 
@@ -134,6 +135,21 @@ Gestes utiles :
 - Passez en vue **Kanban** pour faire glisser les contacts d’état en état
 
 Changez le mot de passe admin dès que possible (demandez à Cursor/Claude de vous ajouter une page “changer mon mot de passe” si besoin).
+
+### 5.1 Importer et enrichir (CSV, Excel, Google Sheets)
+
+**Paramètres → Import & enrichissement** :
+
+1. Déposez un fichier (CSV/TSV quel que soit le séparateur ou l’encodage, Excel `.xlsx`/`.xls`, OpenDocument `.ods`, JSON),
+   collez le lien d’une feuille Google Sheets partagée « Tous les utilisateurs disposant du lien », ou collez des cellules copiées.
+2. Les colonnes sont associées automatiquement (prénom, nom, email, LinkedIn, entreprise, SIRET, site web…),
+   y compris pour les exports Pharow, HubSpot, Dropcontact… Ajustez avec les menus si besoin ;
+   une colonne inconnue peut devenir une **colonne personnalisée** en un clic. Vos corrections sont mémorisées pour les prochains imports.
+3. Choisissez quoi faire si la fiche existe déjà : **compléter les champs vides** (enrichissement, recommandé),
+   remplacer par les valeurs du fichier, ou ne rien modifier.
+
+Les doublons sont évités : contacts reconnus par email, LinkedIn ou nom + entreprise ; entreprises par SIRET ou nom.
+Chaque contact est rattaché à son entreprise (créée si besoin), avec les règles habituelles de catégorie / état.
 
 ---
 

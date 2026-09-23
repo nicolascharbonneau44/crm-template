@@ -868,3 +868,272 @@ tr.row-link:hover {
   overflow-x: auto;
   white-space: nowrap;
 }
+
+.sidebar-footer .nav-settings {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.sidebar-footer .nav-settings:hover,
+.sidebar-footer .nav-settings.active {
+  background: var(--hover);
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.settings-tabs a {
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.settings-tabs a:hover {
+  color: var(--text);
+}
+
+.settings-tabs a.active {
+  color: var(--text);
+  border-bottom-color: var(--text);
+  font-weight: 500;
+}
+
+.settings-section.wide {
+  max-width: 1040px;
+}
+
+.hint {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 36px 16px;
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  background: #fafaf9;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+}
+
+.dropzone:hover,
+.dropzone:focus-visible,
+.dropzone.dragging {
+  border-color: var(--text);
+  background: var(--hover);
+  outline: none;
+}
+
+.dropzone strong {
+  font-size: 15px;
+}
+
+.dropzone span {
+  font-size: 13px;
+}
+
+.import-alt {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.import-alt label,
+.import-options label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  align-content: start;
+}
+
+.import-alt textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.import-file {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  background: #fafaf9;
+}
+
+.segmented button {
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background: #fff;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-weight: 500;
+}
+
+.mapping-table td {
+  vertical-align: middle;
+}
+
+.mapping-table tr.mapped td:first-child {
+  box-shadow: inset 3px 0 0 var(--green-text, #2f6f4f);
+}
+
+.mapping-table .sample {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.mapping-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.mapping-select select {
+  flex: 1;
+}
+
+.import-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.import-preview {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fafaf9;
+  font-size: 13px;
+  display: grid;
+  gap: 4px;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.progress {
+  position: relative;
+  flex: 1 1 200px;
+  max-width: 320px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  overflow: visible;
+}
+
+.progress > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 200ms;
+}
+
+.progress span {
+  position: absolute;
+  right: 0;
+  top: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.import-issues {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #f3c7c7;
+  background: #fdf3f3;
+  font-size: 13px;
+}
+
+.import-issues.warning {
+  border-color: #f1dfb3;
+  background: #fdf8ec;
+}
+
+.import-issues ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.sample-inline {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .mapping-table th:nth-child(2),
+  .mapping-table td.sample {
+    display: none;
+  }
+
+  .sample-inline {
+    display: block;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .mapping-select {
+    min-width: 150px;
+  }
+
+  .mapping-select .badge {
+    display: none;
+  }
+}
