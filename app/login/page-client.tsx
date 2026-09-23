@@ -28,7 +28,8 @@ export default function LoginPage() {
       setPending(false);
       return;
     }
-    const next = searchParams.get("next") || "/contacts";
+    const requested = searchParams.get("next") ?? "";
+    const next = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/contacts";
     router.push(next);
     router.refresh();
   }

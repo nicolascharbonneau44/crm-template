@@ -74,6 +74,8 @@ model User {
   updatedAt    DateTime @updatedAt
   actions      Action[]
   stateChanges ContactStateHistory[]
+  mcpCodes       McpAuthCode[]
+  mcpConnections McpConnection[]
 }
 
 model Company {
@@ -190,4 +192,46 @@ model CustomColumn {
 
   @@unique([entityType, key])
   @@index([entityType])
+}
+
+// OAuth 2.1 pour le connecteur MCP (Claude, Cursor…) : applications enregistrées dynamiquement.
+model McpClient {
+  id           String          @id
+  name         String
+  redirectUris String
+  secretHash   String?
+  codes        McpAuthCode[]
+  connections  McpConnection[]
+  createdAt    DateTime        @default(now())
+}
+
+model McpAuthCode {
+  codeHash      String    @id
+  clientId      String
+  client        McpClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectUri   String
+  codeChallenge String
+  scope         String?
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+}
+
+model McpConnection {
+  id               String    @id @default(cuid())
+  clientId         String
+  client           McpClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope            String?
+  accessTokenHash  String    @unique
+  accessExpiresAt  DateTime
+  refreshTokenHash String    @unique
+  refreshExpiresAt DateTime
+  lastUsedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
 }

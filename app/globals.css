@@ -795,3 +795,76 @@ tr.row-link:hover {
   margin: 0 0 12px;
   font-size: 16px;
 }
+
+.consent-card {
+  width: min(460px, 100%);
+}
+
+.consent-list {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.login-card .consent-meta {
+  font-size: 12px;
+}
+
+.consent-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-section {
+  padding: 20px 16px;
+  border-bottom: 1px solid var(--line);
+  max-width: 860px;
+}
+
+.settings-section h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.settings-section > p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.copy-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.copy-row .input {
+  flex: 1 1 280px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.steps {
+  margin: 16px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.code-line {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--hover);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+}

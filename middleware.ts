@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const SESSION_COOKIE = "crm_session";
-const PUBLIC_PATHS = ["/login", "/api/health", "/api/auth/login", "/api/mcp"];
+const PUBLIC_PATHS = ["/login", "/api/health", "/api/auth/login", "/api/mcp", "/api/oauth"];
 
 async function hasValidSession(token: string) {
   const secret = process.env.AUTH_SECRET || process.env.MCP_TOKEN;
@@ -38,7 +38,8 @@ export async function middleware(request: NextRequest) {
 
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
-  loginUrl.searchParams.set("next", pathname);
+  loginUrl.search = "";
+  loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
   return NextResponse.redirect(loginUrl);
 }
 

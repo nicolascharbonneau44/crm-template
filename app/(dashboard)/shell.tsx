@@ -9,6 +9,7 @@ const links = [
   { href: "/companies", label: "Entreprises" },
   { href: "/actions", label: "Actions" },
   { href: "/stats", label: "Statistiques" },
+  { href: "/settings", label: "Paramètres" },
 ];
 
 export function AppShell({

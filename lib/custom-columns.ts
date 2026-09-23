@@ -71,6 +71,28 @@ export function normalizeCustomFieldInput(type: string, raw: unknown) {
   return String(raw).trim();
 }
 
+export async function validateCustomFields(
+  entityType: CustomEntityType,
+  input: Record<string, unknown>,
+) {
+  const columns = await listCustomColumns(entityType);
+  const byKey = new Map(columns.map((c) => [c.key, c]));
+  const normalized: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(input)) {
+    const column = byKey.get(key);
+    if (!column) {
+      const available = Array.from(byKey.keys()).join(", ") || "aucune";
+      throw new Error(`Colonne personnalisée inconnue « ${key} ». Colonnes disponibles : ${available}.`);
+    }
+    const value = normalizeCustomFieldInput(column.type, raw);
+    if (value === null && raw !== null && raw !== undefined && raw !== "") {
+      throw new Error(`Valeur invalide pour « ${key} » (type ${column.type}) : ${JSON.stringify(raw)}.`);
+    }
+    normalized[key] = value;
+  }
+  return normalized;
+}
+
 export async function listCustomColumns(entityType: CustomEntityType) {
   return prisma.customColumn.findMany({
     where: { entityType },

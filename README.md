@@ -172,56 +172,56 @@ Règle d’or : ne demandez **jamais** à l’IA de mettre des mots de passe ou 
 
 ## 7. Brancher Claude (connecteur MCP)
 
-Le CRM expose une “prise” appelée **MCP**.  
-Claude peut s’y brancher pour lister/créer des contacts, etc.
+Le CRM expose une “prise” appelée **MCP** à l’adresse `https://VOTRE-URL-RAILWAY/api/mcp`.
+Claude s’y connecte avec votre login CRM (OAuth), sans token à copier.
 
-### 7.1 Ce qu’il vous faut
+### 7.1 Brancher dans Claude (une seule fois)
 
-- L’URL publique de votre CRM  
-  Exemple : `https://mon-crm-production.up.railway.app`
-- Votre `MCP_TOKEN` (celui mis dans Railway)
+1. Dans le CRM, ouvrez **Paramètres** et cliquez sur **Connecter à Claude** : l’adresse MCP est copiée et la page des connecteurs Claude s’ouvre.
+2. Dans Claude : **Ajouter un connecteur personnalisé**, nommez-le « CRM », collez l’adresse.
+3. Cliquez sur **Se connecter** : la page d’autorisation du CRM s’ouvre, cliquez sur **Autoriser**.
 
-Adresse MCP :
+Le connecteur est ensuite disponible dans Claude web, desktop et mobile.
+Les applications connectées sont listées dans **Paramètres**, avec un bouton pour les déconnecter.
 
-```text
-https://VOTRE-URL-RAILWAY/api/mcp
-```
+### 7.2 Ce que Claude peut faire
 
-### 7.2 Brancher dans Claude
+La liste à jour est dans **Paramètres → Outils disponibles**. Aujourd’hui :
 
-Selon l’interface Claude (Connectors / MCP / Custom tools) :
+- Contacts : rechercher, fiche complète, créer, modifier (état, entreprise, colonnes perso), supprimer
+- Entreprises : rechercher, fiche avec contacts, créer, modifier, supprimer
+- Actions : rechercher (dont en retard), créer, clôturer, modifier, supprimer
+- Statistiques, structure du CRM (`get_crm_schema`), ajout de colonnes personnalisées
 
-1. Ajoutez un connecteur personnalisé.
-2. URL : `https://VOTRE-URL-RAILWAY/api/mcp`
-3. Authentification : **Bearer Token**
-4. Token : votre `MCP_TOKEN`
-
-### 7.3 Ce que Claude peut faire (outils inclus)
-
-- Lister les contacts
-- Créer un contact
-- Changer l’état d’un contact
-- Lister les actions
-- Ajouter une note
+Les règles du CRM s’appliquent comme dans l’interface : un contact appartient à une entreprise au plus
+(`companyId`, ou `companyName` qui crée l’entreprise si besoin), une action est toujours liée à un contact,
+changer l’état d’un contact recalcule sa catégorie et est historisé. Les doublons (email de contact,
+nom d’entreprise) sont refusés sauf `allowDuplicate: true`.
 
 Exemple de demande à Claude une fois branché :
 
-> Liste mes contacts en catégorie prospect.
-
-Si Claude répond “401 / non autorisé” : le token est faux ou mal collé.
+> Ajoute Marie Durand, DAF chez Caramel, en rendez-vous découverte, et crée une action d’appel pour vendredi.
 
 ---
 
-## 8. Brancher Cursor en MCP
+## 8. Brancher Claude Code, Cursor ou un script
 
-Dans Cursor, vous pouvez aussi ajouter le serveur MCP du CRM :
+- **Claude Code** : `claude mcp add --transport http crm https://VOTRE-URL-RAILWAY/api/mcp`, puis `/mcp` pour vous connecter.
+- **Cursor** : ajoutez un serveur MCP avec l’URL `https://VOTRE-URL-RAILWAY/api/mcp` ; la connexion se fait par la même page d’autorisation.
+- **Script / outil sans OAuth** : en-tête `Authorization: Bearer <MCP_TOKEN>`.
 
-1. Ouvrez les réglages MCP de Cursor.
-2. Ajoutez un serveur avec l’URL `https://VOTRE-URL-RAILWAY/api/mcp`.
-3. Mettez le header d’auth Bearer avec votre `MCP_TOKEN`.
-4. Testez avec : « Liste les contacts du CRM ».
+### 8.1 Ajouter un outil MCP (pour l’IA qui modifie le code)
 
-Même principe que Claude : Cursor devient capable d’agir sur **vos données en ligne**, pas seulement sur le code.
+Le connecteur est pensé pour évoluer avec le CRM :
+
+- Les **colonnes personnalisées** sont automatiquement lisibles et modifiables par Claude (`customFields`), sans code.
+- Pour une nouvelle fonctionnalité, créez un `McpTool` dans `lib/mcp/tools/` (nom, titre, description,
+  `inputSchema`, `kind` : `read` / `write` / `delete`, `handler`) et ajoutez-le à `lib/mcp/registry.ts`.
+  Il apparaît alors dans Claude et dans **Paramètres → Outils disponibles**.
+- Réutilisez les fonctions de `lib/` (comme l’interface) pour que les règles métier restent identiques.
+- Lancez une `ToolError` pour renvoyer à Claude un message d’erreur clair.
+- Toute évolution du schéma Prisma passe par une **nouvelle** migration (`npx prisma migrate dev --name ...`) ;
+  ne modifiez jamais une migration déjà déployée.
 
 ---
 
@@ -265,7 +265,8 @@ Si quelque chose casse : regardez les **Logs** Railway, puis demandez à Cursor 
 - Ne publiez jamais `MCP_TOKEN`, `AUTH_SECRET`, `ADMIN_PASSWORD`.
 - Donnez l’accès GitHub/Railway seulement aux personnes de confiance.
 - Changez les secrets dès la mise en production.
-- Le login protège l’interface web ; le `MCP_TOKEN` protège l’accès IA.
+- Le login protège l’interface web et l’autorisation des connecteurs (Claude, Cursor) ; le `MCP_TOKEN` protège l’accès par script.
+- Retirez l’accès d’une application depuis **Paramètres → Applications connectées**.
 
 ---
 
@@ -282,7 +283,8 @@ Si quelque chose casse : regardez les **Logs** Railway, puis demandez à Cursor 
 
 ### “Claude / Cursor ne se connecte pas au CRM”
 - Vérifiez l’URL : elle doit finir par `/api/mcp`
-- Vérifiez le Bearer token = `MCP_TOKEN`
+- Déconnectez puis reconnectez le connecteur dans Claude (nouvelle autorisation)
+- Pour un script : vérifiez le Bearer token = `MCP_TOKEN`
 - Vérifiez que le service Railway est bien “Online”
 
 ### “Le site est blanc / erreur 502”

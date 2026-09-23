@@ -10,6 +10,8 @@ export type ActionFilters = {
   statut?: string;
   contactCategory?: string;
   contactId?: string;
+  companyId?: string;
+  overdue?: boolean;
   titre?: string;
 };
 
@@ -20,8 +22,15 @@ function buildWhere(filters: ActionFilters = {}): Prisma.ActionWhereInput {
   if (filters.contactId) where.contactId = filters.contactId;
   if (filters.channel && isActionChannel(filters.channel)) where.channel = filters.channel;
   if (filters.statut && isActionStatut(filters.statut)) where.statut = filters.statut;
+  const contactWhere: Prisma.ContactWhereInput = {};
   if (filters.contactCategory && isPersonCategory(filters.contactCategory)) {
-    where.contact = { category: filters.contactCategory };
+    contactWhere.category = filters.contactCategory;
+  }
+  if (filters.companyId) contactWhere.companyId = filters.companyId;
+  if (Object.keys(contactWhere).length) where.contact = contactWhere;
+  if (filters.overdue) {
+    where.datePrevue = { lt: new Date() };
+    if (!where.statut) where.statut = { not: "termine" };
   }
   if (filters.titre?.trim()) where.titre = { contains: filters.titre.trim() };
   if (filters.q?.trim()) {

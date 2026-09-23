@@ -11,6 +11,7 @@ export type ContactFilters = {
   email?: string;
   telephone?: string;
   poste?: string;
+  companyId?: string;
 };
 
 export type ContactSort = {
@@ -56,6 +57,7 @@ function buildWhere(filters: ContactFilters = {}): Prisma.ContactWhereInput {
   if (filters.email?.trim()) and.push({ email: { contains: filters.email.trim() } });
   if (filters.telephone?.trim()) and.push({ telephone: { contains: filters.telephone.trim() } });
   if (filters.poste?.trim()) and.push({ poste: { contains: filters.poste.trim() } });
+  if (filters.companyId) where.companyId = filters.companyId;
 
   if (and.length) where.AND = and;
   return where;
