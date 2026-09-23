@@ -1,4 +1,5 @@
 // Partagé client/serveur : pas d'import Prisma ici.
+import { parseEffectif } from "@/lib/labels";
 
 export type ImportEntity = "contact" | "company";
 export type ImportMode = "contacts" | "companies";
@@ -11,6 +12,7 @@ export type ImportField = {
 };
 
 export const CONTACT_FIELDS: ImportField[] = [
+  { target: "contact.civilite", entity: "contact", label: "Civilité" },
   { target: "contact.prenom", entity: "contact", label: "Prénom" },
   { target: "contact.nom", entity: "contact", label: "Nom" },
   { target: "contact.fullName", entity: "contact", label: "Nom complet (prénom + nom)" },
@@ -29,6 +31,8 @@ export const CONTACT_FIELDS: ImportField[] = [
 export const COMPANY_FIELDS: ImportField[] = [
   { target: "company.nom", entity: "company", label: "Entreprise (nom)" },
   { target: "company.siret", entity: "company", label: "SIRET" },
+  { target: "company.codeNaf", entity: "company", label: "Code NAF" },
+  { target: "company.effectif", entity: "company", label: "Effectif (nombre)" },
   { target: "company.siteWeb", entity: "company", label: "Site web" },
   { target: "company.linkedinUrl", entity: "company", label: "LinkedIn (entreprise)" },
   { target: "company.telephone", entity: "company", label: "Téléphone (entreprise)" },
@@ -81,12 +85,18 @@ const RULES: { target: string; test: RegExp }[] = [
   { target: "company.linkedinUrl", test: /linkedin.*(page|entreprise|societe|company|organisation)|(page|company|entreprise).*linkedin/ },
   { target: "contact.linkedinUrl", test: /linkedin/ },
   { target: "company.siret", test: /\bsiret\b/ },
+  { target: "company.codeNaf", test: /\b(naf|ape)\b/ },
+  {
+    target: "company.effectif",
+    test: /\b(effectifs?|salaries|nombre de salaries|nb salaries|employes|employees|headcount|company size|taille)\b/,
+  },
   { target: "company.siteWeb", test: /\b(site|website|web|domaine|domain)\b/ },
   { target: "company.telephone", test: /\b(tel|telephone|phone)\b.*\b(standard|entreprise|societe|company|siege|accueil)\b|^standard$/ },
   { target: "company.email", test: /\b(e ?mail|courriel)\b.*\b(generique|entreprise|societe|company|contact general)\b/ },
   { target: "company.adresse", test: /\b(adresse|address)\b.*\b(siege|entreprise|societe|company)\b/ },
   { target: "company.description", test: /\bdescription\b.*\b(site|entreprise|societe|company)\b/ },
   { target: "contact.source", test: /\b(source|origine|liste|list|campagne|campaign)\b/ },
+  { target: "contact.civilite", test: /^(civilite|salutation|titre de civilite|genre|gender|prefix|prefixe)$/ },
   { target: "contact.prenom", test: /^(prenom|first ?name|firstname|given name|prenom du contact)$/ },
   { target: "contact.fullName", test: /^(nom complet|full ?name|nom et prenom|prenom et nom|prenom nom|nom prenom|contact|name|contact name)$/ },
   { target: "contact.nom", test: /^(nom|last ?name|lastname|surname|nom de famille|family name|nom du contact)$/ },
@@ -123,6 +133,8 @@ const VALUE_CHECKS: Record<string, (v: string) => boolean> = {
   "contact.telephone": isPhone,
   "company.telephone": isPhone,
   "company.siret": isSiret,
+  "company.codeNaf": (v) => /^\d{2}\.?\d{2}[a-z]$/i.test(v.trim()),
+  "company.effectif": (v) => typeof parseEffectif(v) === "number",
 };
 
 function valuesMatch(target: string, samples: string[]) {

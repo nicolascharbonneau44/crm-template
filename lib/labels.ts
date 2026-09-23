@@ -213,6 +213,61 @@ export const ACTION_STATUT_LABELS: Record<ActionStatut, string> = {
   termine: "Terminé",
 };
 
+export const CIVILITES = ["Monsieur", "Madame"] as const;
+export type Civilite = (typeof CIVILITES)[number];
+
+const CIVILITE_SYNONYMS: Record<string, Civilite> = {
+  monsieur: "Monsieur",
+  m: "Monsieur",
+  mr: "Monsieur",
+  mister: "Monsieur",
+  sir: "Monsieur",
+  homme: "Monsieur",
+  madame: "Madame",
+  mme: "Madame",
+  mrs: "Madame",
+  ms: "Madame",
+  miss: "Madame",
+  mlle: "Madame",
+  mademoiselle: "Madame",
+  femme: "Madame",
+};
+
+/** « Mme », « Mr. », « madame »… → Monsieur / Madame. null = vide, undefined = non reconnu. */
+export function normalizeCivilite(value: unknown): Civilite | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") return undefined;
+  const key = value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  if (!key) return null;
+  return CIVILITE_SYNONYMS[key];
+}
+
+/**
+ * Effectif approximatif : « 2 118 », « environ 50 », « 50+ », tranche « 2000 - 4999 » → milieu (3500).
+ * null = vide, undefined = non reconnu.
+ */
+export function parseEffectif(value: unknown): number | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
+  if (typeof value !== "string") return undefined;
+  const clean = value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[\s  ]/g, "")
+    .replace(/^(~|≈|environ|env\.?|approx\.?)/, "")
+    .replace(/(salaries?|employes?|personnes?|pers\.?|etplus|\+)$/, "");
+  if (!clean) return value.trim() ? undefined : null;
+  const range = clean.match(/^(\d+)(?:-|a|à)(\d+)$/);
+  if (range) return Math.round((Number(range[1]) + Number(range[2])) / 2);
+  if (/^\d+([.,]\d+)?$/.test(clean)) return Math.round(Number(clean.replace(",", ".")));
+  return undefined;
+}
+
 export function isPersonCategory(value: unknown): value is PersonCategory {
   return typeof value === "string" && PERSON_CATEGORIES.includes(value as PersonCategory);
 }

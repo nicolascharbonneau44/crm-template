@@ -10,6 +10,8 @@ import {
   PERSON_STATE_LABELS,
   isPersonCategory,
   isPersonState,
+  normalizeCivilite,
+  parseEffectif,
 } from "@/lib/labels";
 import {
   MAX_ROWS_PER_REQUEST,
@@ -38,6 +40,7 @@ export type ImportResult = {
 export class ImportValidationError extends Error {}
 
 const CONTACT_TEXT_FIELDS = [
+  "civilite",
   "prenom",
   "nom",
   "email",
@@ -52,6 +55,7 @@ const CONTACT_TEXT_FIELDS = [
 const COMPANY_TEXT_FIELDS = [
   "nom",
   "siret",
+  "codeNaf",
   "siteWeb",
   "linkedinUrl",
   "telephone",
@@ -246,15 +250,26 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
           (company.siret && companyBySiret.get(digits(company.siret))) ||
           (company.nom && companyByName.get(normalizeHeader(company.nom))) ||
           null;
+        if (company.codeNaf) company.codeNaf = company.codeNaf.toUpperCase();
+        let effectif: number | undefined;
+        if (company.effectif) {
+          const parsed = parseEffectif(company.effectif);
+          if (typeof parsed === "number") effectif = parsed;
+          else warn(`Effectif non reconnu « ${company.effectif} » : ignoré.`);
+        }
         const fields = Object.fromEntries(
           COMPANY_TEXT_FIELDS.filter((f) => company[f]).map((f) => [f, company[f] as string]),
         );
         if (existingId) {
           const current = companies.get(existingId)!;
-          const patch = patchFor(current as unknown as Record<string, unknown>, fields, req.onExisting);
+          const patch: CompanyInput = patchFor(current as unknown as Record<string, unknown>, fields, req.onExisting);
+          const setEffectif =
+            effectif !== undefined &&
+            (req.onExisting === "overwrite" ? current.effectif !== effectif : req.onExisting === "fill" && current.effectif === null);
+          if (setEffectif) patch.effectif = effectif;
           const customFields = customPatch(current.customFields, companyCustom, req.onExisting);
           if (Object.keys(patch).length || customFields) {
-            const updated = await updateCompany(existingId, { ...(patch as CompanyInput), customFields });
+            const updated = await updateCompany(existingId, { ...patch, customFields });
             indexCompany(updated);
             if (!result.companies.createdIds.includes(existingId) && !result.companies.updatedIds.includes(existingId)) {
               result.companies.updatedIds.push(existingId);
@@ -262,7 +277,7 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
           }
           companyId = existingId;
         } else if (company.nom) {
-          const created = await createCompany({ ...(fields as CompanyInput), customFields: companyCustom });
+          const created = await createCompany({ ...(fields as CompanyInput), effectif, customFields: companyCustom });
           indexCompany(created);
           result.companies.createdIds.push(created.id);
           companyId = created.id;
@@ -280,6 +295,15 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
       // Contact
       const hasContactData = Object.keys(contact).length > 0 || Object.keys(contactCustom).length > 0;
       if (!hasContactData) continue;
+
+      if (contact.civilite) {
+        const civilite = normalizeCivilite(contact.civilite);
+        if (civilite) contact.civilite = civilite;
+        else {
+          warn(`Civilité inconnue « ${contact.civilite} » : ignorée.`);
+          delete contact.civilite;
+        }
+      }
 
       let category: PersonCategory | undefined;
       if (contact.category) {

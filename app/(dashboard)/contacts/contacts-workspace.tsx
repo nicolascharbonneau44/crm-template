@@ -8,6 +8,7 @@ import {
   ACTION_CHANNELS,
   ACTION_CHANNEL_LABELS,
   ACTION_STATUT_LABELS,
+  CIVILITES,
   PERSON_CATEGORIES,
   PERSON_CATEGORY_COLORS,
   PERSON_CATEGORY_LABELS,
@@ -52,6 +53,7 @@ type ActionRow = {
 
 type ContactRow = {
   id: string;
+  civilite: string | null;
   prenom: string;
   nom: string;
   email: string | null;
@@ -83,6 +85,7 @@ type SavedView = {
 const STORAGE_KEY = "crm-contacts-default-layout";
 
 const BASE_COLUMN_DEFS: ColumnDef[] = [
+  { key: "civilite", label: "Civilité" },
   { key: "name", label: "Nom" },
   { key: "company", label: "Entreprise" },
   { key: "email", label: "E-mail" },
@@ -98,6 +101,7 @@ const BASE_COLUMN_DEFS: ColumnDef[] = [
 const FILTER_FIELDS = [
   { key: "category", label: "Catégorie", type: "enum" as const },
   { key: "state", label: "État", type: "enum" as const },
+  { key: "civilite", label: "Civilité", type: "enum" as const },
   { key: "source", label: "Source", type: "text" as const },
   { key: "email", label: "E-mail", type: "text" as const },
   { key: "telephone", label: "Téléphone", type: "text" as const },
@@ -106,6 +110,7 @@ const FILTER_FIELDS = [
 
 const SORT_FIELDS = [
   { key: "updatedAt", label: "Dernière modification" },
+  { key: "civilite", label: "Civilité" },
   { key: "prenom", label: "Prénom" },
   { key: "nom", label: "Nom" },
   { key: "email", label: "E-mail" },
@@ -137,6 +142,8 @@ function cellValue(contact: ContactRow, key: string, customCols: CustomColumnRec
     return formatCustomFieldValue(getCustomFields(contact)[key], custom.type);
   }
   switch (key) {
+    case "civilite":
+      return contact.civilite ?? "—";
     case "name":
       return contactDisplayName(contact);
     case "company":
@@ -327,6 +334,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
     setCreating(true);
     setSelected({
       id: "",
+      civilite: null,
       prenom: "",
       nom: "",
       email: "",
@@ -822,6 +830,26 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                     </option>
                   ))}
                 </select>
+              ) : row.field === "civilite" ? (
+                <select
+                  className="select"
+                  style={{ width: 180 }}
+                  value={row.value}
+                  onChange={(e) => {
+                    setLayout((prev) => ({
+                      ...prev,
+                      filterRows: prev.filterRows.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)),
+                    }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">—</option>
+                  {CIVILITES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <input
                   className="input"
@@ -1181,6 +1209,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   e.preventDefault();
                   const form = new FormData(e.currentTarget);
                   void saveContact({
+                    civilite: String(form.get("civilite") ?? "") || null,
                     prenom: String(form.get("prenom") ?? ""),
                     nom: String(form.get("nom") ?? ""),
                     email: String(form.get("email") ?? "") || null,
@@ -1197,6 +1226,17 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   });
                 }}
               >
+                <label>
+                  Civilité
+                  <select className="select" name="civilite" defaultValue={selected.civilite ?? ""}>
+                    <option value="">—</option>
+                    {CIVILITES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <div className="form-row">
                   <label>
                     Prénom

@@ -32,6 +32,8 @@ type CompanyRow = {
   adresse: string | null;
   siteWeb: string | null;
   siret: string | null;
+  codeNaf: string | null;
+  effectif: number | null;
   linkedinUrl: string | null;
   description: string | null;
   notes: string | null;
@@ -49,11 +51,13 @@ const BASE_COLUMN_DEFS: ColumnDef[] = [
   { key: "email", label: "E-mail" },
   { key: "telephone", label: "Téléphone" },
   { key: "siret", label: "SIRET" },
+  { key: "codeNaf", label: "Code NAF" },
+  { key: "effectif", label: "Effectif" },
   { key: "contactsCount", label: "Contacts" },
 ];
 
 const DEFAULT_LAYOUT: ListLayoutState = {
-  visibleColumnKeys: ["nom", "siteWeb", "email", "contactsCount"],
+  visibleColumnKeys: ["nom", "siteWeb", "email", "codeNaf", "effectif", "contactsCount"],
   columnOrder: BASE_COLUMN_DEFS.map((c) => c.key),
   viewMode: "list",
   filterRows: [],
@@ -217,6 +221,8 @@ export function CompaniesWorkspace() {
       adresse: "",
       siteWeb: "",
       siret: "",
+      codeNaf: "",
+      effectif: null,
       linkedinUrl: "",
       description: "",
       notes: "",
@@ -232,7 +238,7 @@ export function CompaniesWorkspace() {
     setSaving(true);
     setError("");
     const payload = Object.fromEntries(
-      ["nom", "email", "telephone", "adresse", "siteWeb", "siret", "linkedinUrl", "description", "notes"].map(
+      ["nom", "email", "telephone", "adresse", "siteWeb", "siret", "codeNaf", "effectif", "linkedinUrl", "description", "notes"].map(
         (k) => [k, String(form.get(k) ?? "") || null],
       ),
     );
@@ -329,6 +335,7 @@ export function CompaniesWorkspace() {
     const custom = customColumns.find((c) => c.key === key);
     if (custom) return formatCustomFieldValue(getCustomFields(company)[key], custom.type);
     if (key === "contactsCount") return company._count?.contacts ?? company.contacts?.length ?? 0;
+    if (key === "effectif") return company.effectif == null ? "—" : company.effectif.toLocaleString("fr-FR");
     const value = (company as unknown as Record<string, unknown>)[key];
     return value ? String(value) : "—";
   }
@@ -502,6 +509,7 @@ export function CompaniesWorkspace() {
                 <option value="email">E-mail</option>
                 <option value="siteWeb">Site</option>
                 <option value="siret">SIRET</option>
+                <option value="codeNaf">Code NAF</option>
               </select>
               <input
                 className="input"
@@ -558,6 +566,8 @@ export function CompaniesWorkspace() {
                 <option value="email">E-mail</option>
                 <option value="siteWeb">Site</option>
                 <option value="updatedAt">MAJ</option>
+                <option value="effectif">Effectif</option>
+                <option value="codeNaf">Code NAF</option>
                 <option value="contactsCount">Contacts</option>
               </select>
               <select
@@ -770,9 +780,27 @@ export function CompaniesWorkspace() {
                       Site web
                       <input className="input" name="siteWeb" defaultValue={selected.siteWeb ?? ""} />
                     </label>
+                    <div className="form-row">
+                      <label>
+                        SIRET
+                        <input className="input" name="siret" defaultValue={selected.siret ?? ""} />
+                      </label>
+                      <label>
+                        Code NAF
+                        <input className="input" name="codeNaf" placeholder="ex. 10.12Z" defaultValue={selected.codeNaf ?? ""} />
+                      </label>
+                    </div>
                     <label>
-                      SIRET
-                      <input className="input" name="siret" defaultValue={selected.siret ?? ""} />
+                      Effectif (nombre approximatif de salariés)
+                      <input
+                        className="input"
+                        name="effectif"
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="ex. 50"
+                        defaultValue={selected.effectif ?? ""}
+                      />
                     </label>
                     <label>
                       LinkedIn
@@ -800,6 +828,8 @@ export function CompaniesWorkspace() {
                     <input type="hidden" name="telephone" defaultValue={selected.telephone ?? ""} />
                     <input type="hidden" name="siteWeb" defaultValue={selected.siteWeb ?? ""} />
                     <input type="hidden" name="siret" defaultValue={selected.siret ?? ""} />
+                    <input type="hidden" name="codeNaf" defaultValue={selected.codeNaf ?? ""} />
+                    <input type="hidden" name="effectif" defaultValue={selected.effectif ?? ""} />
                     <input type="hidden" name="linkedinUrl" defaultValue={selected.linkedinUrl ?? ""} />
                     <input type="hidden" name="adresse" defaultValue={selected.adresse ?? ""} />
                     <input type="hidden" name="description" defaultValue={selected.description ?? ""} />

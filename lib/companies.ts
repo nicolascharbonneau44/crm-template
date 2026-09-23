@@ -7,6 +7,7 @@ export type CompanyFilters = {
   email?: string;
   siteWeb?: string;
   siret?: string;
+  codeNaf?: string;
 };
 
 export type CompanySort = { field: string; direction: "asc" | "desc" };
@@ -22,12 +23,14 @@ function buildWhere(filters: CompanyFilters = {}): Prisma.CompanyWhereInput {
         { email: { contains: query } },
         { siteWeb: { contains: query } },
         { siret: { contains: query } },
+        { codeNaf: { contains: query } },
       ],
     });
   }
   if (filters.email?.trim()) and.push({ email: { contains: filters.email.trim() } });
   if (filters.siteWeb?.trim()) and.push({ siteWeb: { contains: filters.siteWeb.trim() } });
   if (filters.siret?.trim()) and.push({ siret: { contains: filters.siret.trim() } });
+  if (filters.codeNaf?.trim()) and.push({ codeNaf: { contains: filters.codeNaf.trim() } });
   if (and.length) where.AND = and;
   return where;
 }
@@ -77,6 +80,8 @@ export type CompanyInput = {
   adresse?: string | null;
   siteWeb?: string | null;
   siret?: string | null;
+  codeNaf?: string | null;
+  effectif?: number | null;
   linkedinUrl?: string | null;
   description?: string | null;
   notes?: string | null;
@@ -101,6 +106,8 @@ export async function createCompany(input: CompanyInput) {
       adresse: cleanOptional(input.adresse) ?? null,
       siteWeb: cleanOptional(input.siteWeb) ?? null,
       siret: cleanOptional(input.siret) ?? null,
+      codeNaf: cleanOptional(input.codeNaf)?.toUpperCase() ?? null,
+      effectif: input.effectif ?? null,
       linkedinUrl: cleanOptional(input.linkedinUrl) ?? null,
       description: cleanOptional(input.description) ?? null,
       notes: cleanOptional(input.notes) ?? null,
@@ -121,6 +128,8 @@ export async function updateCompany(id: string, input: CompanyInput) {
       ...(input.adresse !== undefined ? { adresse: cleanOptional(input.adresse) } : {}),
       ...(input.siteWeb !== undefined ? { siteWeb: cleanOptional(input.siteWeb) } : {}),
       ...(input.siret !== undefined ? { siret: cleanOptional(input.siret) } : {}),
+      ...(input.codeNaf !== undefined ? { codeNaf: cleanOptional(input.codeNaf)?.toUpperCase() ?? null } : {}),
+      ...(input.effectif !== undefined ? { effectif: input.effectif } : {}),
       ...(input.linkedinUrl !== undefined ? { linkedinUrl: cleanOptional(input.linkedinUrl) } : {}),
       ...(input.description !== undefined ? { description: cleanOptional(input.description) } : {}),
       ...(input.notes !== undefined ? { notes: cleanOptional(input.notes) } : {}),

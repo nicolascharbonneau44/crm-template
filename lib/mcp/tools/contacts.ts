@@ -1,7 +1,7 @@
 import type { Contact, Company } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createContact, deleteContact, listContacts, updateContact, type ContactInput } from "@/lib/contacts";
-import { PERSON_CATEGORIES, PERSON_STATES } from "@/lib/labels";
+import { CIVILITES, PERSON_CATEGORIES, PERSON_STATES, normalizeCivilite } from "@/lib/labels";
 import { resolveCompanyLink } from "@/lib/mcp/tools/companies";
 import {
   ToolError,
@@ -20,6 +20,11 @@ import {
 } from "@/lib/mcp/types";
 
 const contactFields = {
+  civilite: {
+    type: ["string", "null"],
+    enum: [...CIVILITES, null],
+    description: "Monsieur ou Madame (null pour effacer)",
+  },
   prenom: { type: "string" },
   nom: { type: "string" },
   email: { type: ["string", "null"] },
@@ -56,6 +61,7 @@ const contactFields = {
 export function contactSummary(contact: Contact & { company?: Pick<Company, "id" | "nom"> | null }) {
   return {
     id: contact.id,
+    civilite: contact.civilite,
     prenom: contact.prenom,
     nom: contact.nom,
     email: contact.email,
@@ -72,8 +78,16 @@ export function contactSummary(contact: Contact & { company?: Pick<Company, "id"
   };
 }
 
+function civiliteArg(args: ToolArgs) {
+  if (!("civilite" in args) || args.civilite === undefined) return undefined;
+  const civilite = normalizeCivilite(args.civilite);
+  if (civilite === undefined) throw new ToolError("« civilite » invalide : Monsieur ou Madame.");
+  return civilite;
+}
+
 async function contactInput(args: ToolArgs): Promise<ContactInput> {
   return {
+    civilite: civiliteArg(args),
     prenom: optionalString(args, "prenom"),
     nom: optionalString(args, "nom"),
     email: nullableString(args, "email"),

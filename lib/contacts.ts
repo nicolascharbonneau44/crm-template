@@ -11,6 +11,7 @@ export type ContactFilters = {
   email?: string;
   telephone?: string;
   poste?: string;
+  civilite?: string;
   companyId?: string;
 };
 
@@ -20,6 +21,7 @@ export type ContactSort = {
 };
 
 const SORTABLE: Record<string, Prisma.ContactOrderByWithRelationInput> = {
+  civilite: { civilite: "asc" },
   prenom: { prenom: "asc" },
   nom: { nom: "asc" },
   email: { email: "asc" },
@@ -58,6 +60,7 @@ function buildWhere(filters: ContactFilters = {}): Prisma.ContactWhereInput {
   if (filters.telephone?.trim()) and.push({ telephone: { contains: filters.telephone.trim() } });
   if (filters.poste?.trim()) and.push({ poste: { contains: filters.poste.trim() } });
   if (filters.companyId) where.companyId = filters.companyId;
+  if (filters.civilite?.trim()) where.civilite = filters.civilite.trim();
 
   if (and.length) where.AND = and;
   return where;
@@ -106,6 +109,7 @@ export async function getContact(id: string) {
 }
 
 export type ContactInput = {
+  civilite?: string | null;
   prenom?: string;
   nom?: string;
   email?: string | null;
@@ -142,6 +146,7 @@ export async function createContact(input: ContactInput, changedById?: string) {
   return prisma.$transaction(async (tx) => {
     const contact = await tx.contact.create({
       data: {
+        civilite: cleanOptional(input.civilite) ?? null,
         prenom: input.prenom?.trim() ?? "",
         nom: input.nom?.trim() ?? "",
         email: cleanOptional(input.email) ?? null,
@@ -194,6 +199,7 @@ export async function updateContact(id: string, input: ContactInput, changedById
     const contact = await tx.contact.update({
       where: { id },
       data: {
+        ...(input.civilite !== undefined ? { civilite: cleanOptional(input.civilite) } : {}),
         ...(input.prenom !== undefined ? { prenom: input.prenom.trim() } : {}),
         ...(input.nom !== undefined ? { nom: input.nom.trim() } : {}),
         ...(input.email !== undefined ? { email: cleanOptional(input.email) } : {}),

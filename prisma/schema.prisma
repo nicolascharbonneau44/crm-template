@@ -86,6 +86,8 @@ model Company {
   adresse      String?
   siteWeb      String?
   siret        String?
+  codeNaf      String?
+  effectif     Int?
   linkedinUrl  String?
   description  String?
   notes        String?
@@ -97,6 +99,7 @@ model Company {
 
 model Contact {
   id                    String         @id @default(cuid())
+  civilite              String?
   prenom                String         @default("")
   nom                   String         @default("")
   email                 String?

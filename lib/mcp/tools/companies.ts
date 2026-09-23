@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { parseEffectif } from "@/lib/labels";
 import {
   createCompany,
   deleteCompany,
@@ -29,6 +30,12 @@ const companyFields = {
   adresse: { type: ["string", "null"] },
   siteWeb: { type: ["string", "null"], description: "URL du site web" },
   siret: { type: ["string", "null"] },
+  codeNaf: { type: ["string", "null"], description: "Code NAF / APE, ex. 10.12Z" },
+  effectif: {
+    type: ["integer", "null"],
+    minimum: 0,
+    description: "Nombre approximatif de salariés (taille de l'entreprise)",
+  },
   linkedinUrl: { type: ["string", "null"] },
   description: { type: ["string", "null"] },
   notes: { type: ["string", "null"], description: "Notes internes" },
@@ -65,6 +72,13 @@ export async function resolveCompanyLink(args: ToolArgs) {
   return { companyId: created.id, createdCompany: { id: created.id, nom: created.nom } };
 }
 
+function effectifArg(args: ToolArgs) {
+  if (!("effectif" in args) || args.effectif === undefined) return undefined;
+  const effectif = parseEffectif(args.effectif);
+  if (effectif === undefined) throw new ToolError("« effectif » doit être un nombre de salariés (ex. 50).");
+  return effectif;
+}
+
 async function companyInput(args: ToolArgs): Promise<CompanyInput> {
   return {
     nom: optionalString(args, "nom"),
@@ -73,6 +87,8 @@ async function companyInput(args: ToolArgs): Promise<CompanyInput> {
     adresse: nullableString(args, "adresse"),
     siteWeb: nullableString(args, "siteWeb"),
     siret: nullableString(args, "siret"),
+    codeNaf: nullableString(args, "codeNaf"),
+    effectif: effectifArg(args),
     linkedinUrl: nullableString(args, "linkedinUrl"),
     description: nullableString(args, "description"),
     notes: nullableString(args, "notes"),
@@ -91,7 +107,7 @@ export const companyTools: McpTool[] = [
     title: "Rechercher des entreprises",
     kind: "read",
     description:
-      "Recherche les entreprises (nom, email, site web, SIRET). Renvoie aussi le nombre de contacts rattachés. Sans filtre, liste toutes les entreprises par ordre alphabétique.",
+      "Recherche les entreprises (nom, email, site web, SIRET, code NAF). Renvoie aussi l'effectif et le nombre de contacts rattachés. Sans filtre, liste toutes les entreprises par ordre alphabétique.",
     inputSchema: {
       type: "object",
       properties: {

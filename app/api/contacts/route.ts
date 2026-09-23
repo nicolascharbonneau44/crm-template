@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { createContact, listContacts } from "@/lib/contacts";
-import { isPersonCategory, isPersonState, parseOptionalDate } from "@/lib/labels";
+import { isPersonCategory, isPersonState, normalizeCivilite, parseOptionalDate } from "@/lib/labels";
 import type { ContactSort } from "@/lib/contacts";
 
 export async function GET(request: Request) {
@@ -25,6 +25,7 @@ export async function GET(request: Request) {
       email: searchParams.get("email") ?? undefined,
       telephone: searchParams.get("telephone") ?? undefined,
       poste: searchParams.get("poste") ?? undefined,
+      civilite: searchParams.get("civilite") ?? undefined,
     },
     {
       sorts,
@@ -52,9 +53,14 @@ export async function POST(request: Request) {
   if (state !== undefined && state !== null && state !== "" && !isPersonState(state)) {
     return NextResponse.json({ error: "État invalide" }, { status: 400 });
   }
+  const civilite = normalizeCivilite(body.civilite);
+  if (civilite === undefined) {
+    return NextResponse.json({ error: "Civilité invalide (Monsieur ou Madame)" }, { status: 400 });
+  }
 
   const contact = await createContact(
     {
+      civilite,
       prenom,
       nom,
       email: body.email ?? null,
