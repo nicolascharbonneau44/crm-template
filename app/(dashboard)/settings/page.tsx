@@ -4,8 +4,10 @@ import { listCustomColumns } from "@/lib/custom-columns";
 import { formatDateTime } from "@/lib/labels";
 import { MCP_TOOLS } from "@/lib/mcp/registry";
 import { listConnections, mcpResourceUrl } from "@/lib/oauth";
+import { getSessionUser } from "@/lib/auth";
+import { isMailConfigured, mailSender } from "@/lib/mailer";
 import { ImportWizard } from "./import-wizard";
-import { ClaudeConnect, RevokeButton } from "./settings-client";
+import { ChangePasswordForm, ClaudeConnect, RevokeButton } from "./settings-client";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +20,14 @@ const KIND_LABELS = {
 const TABS = [
   { id: "connexions", label: "Connexions MCP" },
   { id: "import", label: "Import & enrichissement" },
+  { id: "compte", label: "Mon compte" },
 ] as const;
 
 type SearchParams = Promise<{ tab?: string }>;
 
 export default async function SettingsPage({ searchParams }: { searchParams: SearchParams }) {
-  const tab = (await searchParams).tab === "import" ? "import" : "connexions";
+  const requested = (await searchParams).tab;
+  const tab = TABS.some((t) => t.id === requested) ? requested : "connexions";
 
   return (
     <div className="page">
@@ -39,8 +43,48 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
           </Link>
         ))}
       </nav>
-      {tab === "import" ? <ImportSettings /> : <McpSettings />}
+      {tab === "import" ? <ImportSettings /> : tab === "compte" ? <AccountSettings /> : <McpSettings />}
     </div>
+  );
+}
+
+async function AccountSettings() {
+  const user = await getSessionUser();
+  const mailReady = isMailConfigured();
+  return (
+    <>
+      <section className="settings-section">
+        <h2>Changer mon mot de passe</h2>
+        <p>
+          Connecté en tant que <strong>{user?.email}</strong>. Après le changement, vos autres sessions ouvertes sont
+          déconnectées.
+        </p>
+        <ChangePasswordForm />
+      </section>
+      <section className="settings-section">
+        <h2>Mot de passe oublié</h2>
+        <p>
+          Depuis la page de connexion, « Mot de passe oublié ? » envoie un lien de réinitialisation par email (valable 1
+          heure).
+        </p>
+        {mailReady ? (
+          <p>
+            <span className="badge badge-green">Envoi d’emails configuré</span>{" "}
+            <span className="muted" style={{ fontSize: 13 }}>
+              Expéditeur : {mailSender()}
+            </span>
+          </p>
+        ) : (
+          <p>
+            <span className="badge badge-orange">Envoi d’emails non configuré</span>{" "}
+            <span className="muted" style={{ fontSize: 13 }}>
+              Ajoutez les variables SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS et MAIL_FROM dans Railway. En attendant,
+              le lien apparaît dans les logs Railway.
+            </span>
+          </p>
+        )}
+      </section>
+    </>
   );
 }
 

@@ -37,6 +37,7 @@ export async function verifySessionToken(token: string) {
     return {
       userId,
       email: typeof payload.email === "string" ? payload.email : "",
+      issuedAt: typeof payload.iat === "number" ? payload.iat : 0,
     };
   } catch {
     return null;
@@ -65,10 +66,15 @@ export async function getSessionUser() {
   if (!token) return null;
   const session = await verifySessionToken(token);
   if (!session) return null;
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, email: true, fullName: true, role: true },
+    select: { id: true, email: true, fullName: true, role: true, passwordChangedAt: true },
   });
+  if (!user) return null;
+  // Session ouverte avant le dernier changement de mot de passe → invalide.
+  if (user.passwordChangedAt && session.issuedAt < Math.floor(user.passwordChangedAt.getTime() / 1000)) return null;
+  const { passwordChangedAt: _changedAt, ...publicUser } = user;
+  return publicUser;
 }
 
 export async function requireSessionUser() {

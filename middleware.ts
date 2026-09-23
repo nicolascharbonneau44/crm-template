@@ -3,7 +3,17 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const SESSION_COOKIE = "crm_session";
-const PUBLIC_PATHS = ["/login", "/api/health", "/api/auth/login", "/api/mcp", "/api/oauth"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/api/health",
+  "/api/auth/login",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+  "/api/mcp",
+  "/api/oauth",
+];
 
 async function hasValidSession(token: string) {
   const secret = process.env.AUTH_SECRET || process.env.MCP_TOKEN;

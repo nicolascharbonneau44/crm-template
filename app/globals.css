@@ -1137,3 +1137,29 @@ tr.row-link:hover {
     display: none;
   }
 }
+
+.login-link {
+  justify-self: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.login-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.login-card > .btn {
+  display: inline-flex;
+  justify-content: center;
+}
+
+.password-form {
+  max-width: 360px;
+}
+
+.success {
+  margin: 0;
+  color: var(--green-text);
+  font-size: 13px;
+}

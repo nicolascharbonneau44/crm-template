@@ -107,6 +107,20 @@ Notes simples :
 - Ne partagez jamais `MCP_TOKEN`, `AUTH_SECRET` ni `ADMIN_PASSWORD`.
 - Après avoir modifié les variables, **redéployez** (Redeploy) si Railway ne le fait pas tout seul.
 
+**Emails (mot de passe oublié)** — facultatif mais recommandé. Ajoutez les accès SMTP de votre messagerie
+(Gmail / Google Workspace avec un « mot de passe d’application », Outlook / Microsoft 365, OVH, Brevo…) :
+
+| Variable | Exemple |
+|---|---|
+| `APP_URL` | `https://mon-crm-production.up.railway.app` (adresse utilisée dans les liens des emails) |
+| `SMTP_HOST` | `smtp.gmail.com` · `smtp.office365.com` · `ssl0.ovh.net` · `smtp-relay.brevo.com` |
+| `SMTP_PORT` | `587` (ou `465`) |
+| `SMTP_USER` | l’adresse / l’identifiant SMTP |
+| `SMTP_PASS` | le mot de passe SMTP (ou mot de passe d’application) |
+| `MAIL_FROM` | `CRM <crm@votre-domaine.fr>` |
+
+Sans SMTP, le lien de réinitialisation est écrit dans les **Logs** Railway. L’état est visible dans **Paramètres → Mon compte**.
+
 ### 4.5 Vérifier que ça marche
 
 1. Ouvrez l’URL publique Railway.

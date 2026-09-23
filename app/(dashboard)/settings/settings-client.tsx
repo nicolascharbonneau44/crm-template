@@ -60,6 +60,63 @@ export function ClaudeConnect({ mcpUrl }: { mcpUrl: string }) {
   );
 }
 
+export function ChangePasswordForm() {
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
+    const newPassword = String(form.get("newPassword") ?? "");
+    setSuccess(false);
+    if (newPassword !== String(form.get("confirm") ?? "")) {
+      setError("Les deux nouveaux mots de passe ne correspondent pas.");
+      return;
+    }
+    setError("");
+    setPending(true);
+    const res = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: String(form.get("currentPassword") ?? ""), newPassword }),
+    });
+    setPending(false);
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error ?? "Modification impossible");
+      return;
+    }
+    formEl.reset();
+    setSuccess(true);
+  }
+
+  return (
+    <form className="form-grid password-form" onSubmit={onSubmit}>
+      <label>
+        Mot de passe actuel
+        <input className="input" name="currentPassword" type="password" required autoComplete="current-password" />
+      </label>
+      <label>
+        Nouveau mot de passe (8 caractères minimum)
+        <input className="input" name="newPassword" type="password" required minLength={8} autoComplete="new-password" />
+      </label>
+      <label>
+        Confirmer le nouveau mot de passe
+        <input className="input" name="confirm" type="password" required minLength={8} autoComplete="new-password" />
+      </label>
+      {error ? <p className="error">{error}</p> : null}
+      {success ? <p className="success">Mot de passe modifié.</p> : null}
+      <div>
+        <button className="btn" type="submit" disabled={pending}>
+          {pending ? "Enregistrement…" : "Changer le mot de passe"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function RevokeButton({ id, name }: { id: string; name: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);

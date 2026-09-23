@@ -70,8 +70,10 @@ model User {
   passwordHash String
   fullName     String?
   role         String   @default("admin")
+  passwordChangedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  passwordResets PasswordResetToken[]
   actions      Action[]
   stateChanges ContactStateHistory[]
   mcpCodes       McpAuthCode[]
@@ -235,6 +237,16 @@ model McpConnection {
   lastUsedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  tokenHash String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }

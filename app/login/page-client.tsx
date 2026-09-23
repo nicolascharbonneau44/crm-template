@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -43,16 +44,19 @@ export default function LoginPage() {
         </div>
         <label>
           Email
-          <input className="input" name="email" type="email" required defaultValue="admin@example.com" />
+          <input className="input" name="email" type="email" required autoComplete="email" />
         </label>
         <label>
           Mot de passe
-          <input className="input" name="password" type="password" required defaultValue="admin123!" />
+          <input className="input" name="password" type="password" required autoComplete="current-password" />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" disabled={pending} type="submit">
           {pending ? "Connexion…" : "Se connecter"}
         </button>
+        <Link className="login-link" href="/forgot-password">
+          Mot de passe oublié ?
+        </Link>
       </form>
     </div>
   );
