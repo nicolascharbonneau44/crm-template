@@ -73,12 +73,15 @@ export function MeetMagnetSettings(props: {
   defaultCategory: PersonCategory;
   defaultState: PersonState;
   createTask: boolean;
+  defaultOwnerId: string | null;
+  users: { id: string; label: string }[];
 }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [category, setCategory] = useState<PersonCategory>(props.defaultCategory);
   const [state, setState] = useState<PersonState>(props.defaultState);
   const [createTask, setCreateTask] = useState(props.createTask);
+  const [ownerId, setOwnerId] = useState(props.defaultOwnerId ?? "");
   const [status, setStatus] = useState("");
 
   async function save(patch: Record<string, unknown>) {
@@ -142,6 +145,25 @@ export function MeetMagnetSettings(props: {
 
       <div className="import-options">
         <label>
+          Responsable des contacts et relances reçus
+          <select
+            className="input"
+            value={ownerId}
+            onChange={(e) => {
+              setOwnerId(e.target.value);
+              void save({ defaultOwnerId: e.target.value || null });
+            }}
+          >
+            <option value="">Non attribué</option>
+            {props.users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+          <span className="hint">Un contact déjà suivi garde son responsable : la relance lui revient.</span>
+        </label>
+        <label>
           Catégorie des nouveaux contacts
           <select className="input" value={category} onChange={(e) => changeCategory(e.target.value as PersonCategory)}>
             {PERSON_CATEGORIES.map((c) => (
@@ -189,6 +211,158 @@ export function MeetMagnetSettings(props: {
           Générer une nouvelle URL
         </button>
       </div>
+    </div>
+  );
+}
+
+type TeamUser = { id: string; email: string; fullName: string | null };
+
+function InviteLink({ link, emailed, name }: { link: string; emailed: boolean; name: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="invite-result">
+      <p>
+        {emailed
+          ? `Invitation envoyée par email à ${name}. Vous pouvez aussi lui transmettre ce lien :`
+          : `Envoyez ce lien à ${name} (valable 7 jours) : il lui permet de choisir son mot de passe.`}
+      </p>
+      <div className="copy-row">
+        <input className="input" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+        <button
+          className="btn secondary"
+          type="button"
+          onClick={async () => {
+            if (await copy(link)) {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 2500);
+            }
+          }}
+        >
+          {copied ? "Copié ✓" : "Copier"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function UserRow({ user, isMe }: { user: TeamUser; isMe: boolean }) {
+  const router = useRouter();
+  const [name, setName] = useState(user.fullName ?? "");
+  const [saved, setSaved] = useState(false);
+  const [invite, setInvite] = useState<{ link: string; emailed: boolean } | null>(null);
+
+  async function saveName() {
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fullName: name }),
+    });
+    if (res.ok) {
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+      router.refresh();
+    }
+  }
+
+  async function newLink() {
+    const res = await fetch(`/api/users/${user.id}`, { method: "POST" });
+    if (res.ok) setInvite(await res.json());
+  }
+
+  return (
+    <tr>
+      <td>
+        <div className="inline-row">
+          <input className="input" value={name} placeholder="Prénom Nom" onChange={(e) => setName(e.target.value)} />
+          <button
+            className="btn secondary small"
+            type="button"
+            disabled={!name.trim() || name === (user.fullName ?? "")}
+            onClick={() => void saveName()}
+          >
+            {saved ? "✓" : "Renommer"}
+          </button>
+        </div>
+        {invite ? <InviteLink {...invite} name={name || user.email} /> : null}
+      </td>
+      <td className="muted">
+        {user.email} {isMe ? <span className="badge badge-blue">vous</span> : null}
+      </td>
+      <td style={{ textAlign: "right" }}>
+        {isMe ? null : (
+          <button className="btn ghost small" type="button" onClick={() => void newLink()}>
+            Nouveau lien de connexion
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+export function UsersManager({ users, currentUserId }: { users: TeamUser[]; currentUserId: string }) {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const [created, setCreated] = useState<{ link: string; emailed: boolean; name: string } | null>(null);
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
+    setError("");
+    setPending(true);
+    const res = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fullName: form.get("fullName"), email: form.get("email") }),
+    });
+    setPending(false);
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      link?: string;
+      emailed?: boolean;
+      user?: TeamUser;
+    };
+    if (!res.ok || !data.link || !data.user) {
+      setError(data.error ?? "Création impossible");
+      return;
+    }
+    setCreated({ link: data.link, emailed: Boolean(data.emailed), name: data.user.fullName ?? data.user.email });
+    formEl.reset();
+    router.refresh();
+  }
+
+  return (
+    <div>
+      <div className="table-wrap" style={{ border: "1px solid var(--line)", borderRadius: 8 }}>
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Email (identifiant)</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <UserRow key={u.id} user={u} isMe={u.id === currentUserId} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <form className="add-user-form" onSubmit={onSubmit}>
+        <h3>Ajouter une personne</h3>
+        <div className="inline-row">
+          <input className="input" name="fullName" placeholder="Prénom Nom" required />
+          <input className="input" name="email" type="email" placeholder="email@entreprise.fr" required />
+          <button className="btn" type="submit" disabled={pending}>
+            {pending ? "Création…" : "Ajouter"}
+          </button>
+        </div>
+        {error ? <p className="error">{error}</p> : null}
+        {created ? <InviteLink {...created} /> : null}
+      </form>
     </div>
   );
 }

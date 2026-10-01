@@ -27,7 +27,7 @@ export type ImportRequest = {
   columns: string[];
   rows: string[][];
   firstLine: number;
-  defaults: { category?: PersonCategory; state?: PersonState; source?: string };
+  defaults: { category?: PersonCategory; state?: PersonState; source?: string; ownerId?: string };
 };
 
 export type ImportResult = {
@@ -151,12 +151,16 @@ function validateRequest(body: unknown): ImportRequest {
       category: isPersonCategory(d.category) ? d.category : undefined,
       state: isPersonState(d.state) ? d.state : undefined,
       source: typeof d.source === "string" && d.source.trim() ? d.source.trim().slice(0, 200) : undefined,
+      ownerId: typeof d.ownerId === "string" && d.ownerId ? d.ownerId : undefined,
     },
   };
 }
 
 export async function runImport(body: unknown, userId?: string): Promise<ImportResult> {
   const req = validateRequest(body);
+  if (req.defaults.ownerId && !(await prisma.user.findUnique({ where: { id: req.defaults.ownerId }, select: { id: true } }))) {
+    throw new ImportValidationError("Responsable inconnu");
+  }
 
   const [contactColumns, companyColumns] = await Promise.all([
     listCustomColumns("contact"),
@@ -339,6 +343,7 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
             category: category ?? req.defaults.category,
             state: state ?? (category ? undefined : req.defaults.state),
             companyId,
+            ownerId: req.defaults.ownerId ?? null,
             customFields: contactCustom,
           },
           userId,
@@ -363,6 +368,7 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
       if (companyId && companyId !== current.companyId && (req.onExisting === "overwrite" || !current.companyId)) {
         patch.companyId = companyId;
       }
+      if (req.defaults.ownerId && !current.ownerId) patch.ownerId = req.defaults.ownerId;
       const customFields = customPatch(current.customFields, contactCustom, req.onExisting);
       if (customFields) patch.customFields = customFields;
 

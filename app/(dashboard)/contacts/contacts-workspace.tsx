@@ -38,6 +38,7 @@ import {
   type CustomColumnRecord,
 } from "@/lib/custom-columns";
 import { CustomColumnModal, CustomFieldInputs } from "@/app/components/custom-column-modal";
+import { UserFilterOptions, userLabel, useUsers, type CrmUser } from "@/app/components/use-users";
 
 type CompanyOption = { id: string; nom: string };
 
@@ -49,6 +50,7 @@ type ActionRow = {
   statut: ActionStatut;
   datePrevue: string | Date | null;
   dateRealisation: string | Date | null;
+  user?: CrmUser | null;
 };
 
 type ContactRow = {
@@ -68,6 +70,8 @@ type ContactRow = {
   state: PersonState;
   companyId: string | null;
   company: { id: string; nom: string } | null;
+  ownerId: string | null;
+  owner?: CrmUser | null;
   prochaineActionTitre: string | null;
   prochaineActionDate: string | Date | null;
   updatedAt: string | Date;
@@ -88,6 +92,7 @@ const BASE_COLUMN_DEFS: ColumnDef[] = [
   { key: "civilite", label: "Civilité" },
   { key: "name", label: "Nom" },
   { key: "company", label: "Entreprise" },
+  { key: "owner", label: "Responsable" },
   { key: "email", label: "E-mail" },
   { key: "telephone", label: "Téléphone" },
   { key: "poste", label: "Poste" },
@@ -101,6 +106,7 @@ const BASE_COLUMN_DEFS: ColumnDef[] = [
 const FILTER_FIELDS = [
   { key: "category", label: "Catégorie", type: "enum" as const },
   { key: "state", label: "État", type: "enum" as const },
+  { key: "owner", label: "Responsable", type: "enum" as const },
   { key: "civilite", label: "Civilité", type: "enum" as const },
   { key: "source", label: "Source", type: "text" as const },
   { key: "email", label: "E-mail", type: "text" as const },
@@ -121,7 +127,7 @@ const SORT_FIELDS = [
 ];
 
 const DEFAULT_LAYOUT: ListLayoutState = {
-  visibleColumnKeys: ["name", "company", "email", "category", "state", "next_action", "updatedAt"],
+  visibleColumnKeys: ["name", "company", "owner", "email", "category", "state", "next_action", "updatedAt"],
   columnOrder: BASE_COLUMN_DEFS.map((c) => c.key),
   viewMode: "list",
   filterRows: [],
@@ -129,6 +135,13 @@ const DEFAULT_LAYOUT: ListLayoutState = {
   kanbanGroupBy: "state",
   pageSize: 25,
 };
+
+/** Champ datetime-local (heure du navigateur) → ISO avec fuseau, pour que le serveur (UTC) ne décale pas l'heure. */
+function toIsoDate(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 function getCustomFields(contact: ContactRow) {
   return typeof contact.customFields === "string"
@@ -148,6 +161,8 @@ function cellValue(contact: ContactRow, key: string, customCols: CustomColumnRec
       return contactDisplayName(contact);
     case "company":
       return contact.company?.nom ?? "—";
+    case "owner":
+      return contact.owner ? userLabel(contact.owner) : "—";
     case "email":
       return contact.email ?? "—";
     case "telephone":
@@ -188,6 +203,8 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkState, setBulkState] = useState("");
+  const [bulkOwner, setBulkOwner] = useState("");
+  const { users, currentUserId } = useUsers();
   const [dragCol, setDragCol] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
   const [customColumns, setCustomColumns] = useState<CustomColumnRecord[]>([]);
@@ -335,6 +352,8 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
     setSelected({
       id: "",
       civilite: null,
+      ownerId: currentUserId,
+      owner: null,
       prenom: "",
       nom: "",
       email: "",
@@ -415,7 +434,8 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
         channel: form.get("channel"),
         titre: form.get("titre"),
         contenu: form.get("contenu"),
-        datePrevue: form.get("datePrevue") || null,
+        datePrevue: toIsoDate(form.get("datePrevue")),
+        assigneeId: (form.get("assigneeId") as string) || null,
       }),
     });
     await openContact(selected.id);
@@ -452,11 +472,13 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
         ids: selectedIds,
         category: bulkCategory || undefined,
         state: bulkState || undefined,
+        ownerId: bulkOwner || undefined,
       }),
     });
     setBulkOpen(false);
     setBulkCategory("");
     setBulkState("");
+    setBulkOwner("");
     setSelectedIds([]);
     await fetchContacts();
   }
@@ -830,6 +852,21 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                     </option>
                   ))}
                 </select>
+              ) : row.field === "owner" ? (
+                <select
+                  className="select"
+                  style={{ width: 180 }}
+                  value={row.value}
+                  onChange={(e) => {
+                    setLayout((prev) => ({
+                      ...prev,
+                      filterRows: prev.filterRows.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)),
+                    }));
+                    setPage(1);
+                  }}
+                >
+                  <UserFilterOptions users={users} currentUserId={currentUserId} />
+                </select>
               ) : row.field === "civilite" ? (
                 <select
                   className="select"
@@ -1132,6 +1169,18 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                 ))}
               </select>
             </label>
+            <label>
+              Responsable
+              <select className="select" value={bulkOwner} onChange={(e) => setBulkOwner(e.target.value)}>
+                <option value="">Ne pas changer</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {userLabel(u)}
+                  </option>
+                ))}
+                <option value="none">Non attribué</option>
+              </select>
+            </label>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button className="btn secondary small" type="button" onClick={() => setBulkOpen(false)}>
                 Annuler
@@ -1210,6 +1259,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   const form = new FormData(e.currentTarget);
                   void saveContact({
                     civilite: String(form.get("civilite") ?? "") || null,
+                    ownerId: String(form.get("ownerId") ?? "") || null,
                     prenom: String(form.get("prenom") ?? ""),
                     nom: String(form.get("nom") ?? ""),
                     email: String(form.get("email") ?? "") || null,
@@ -1279,6 +1329,17 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                     </select>
                   </label>
                 </div>
+                <label>
+                  Responsable
+                  <select className="select" name="ownerId" defaultValue={selected.ownerId ?? ""}>
+                    <option value="">Non attribué</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {userLabel(u)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>
                   Entreprise
                   <select className="select" name="companyId" defaultValue={selected.companyId ?? ""}>
@@ -1356,6 +1417,18 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                     <input className="input" name="titre" required />
                   </label>
                   <label>
+                    Assignée à
+                    <select className="select" name="assigneeId" defaultValue={selected.ownerId ?? currentUserId ?? ""}>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {userLabel(u)}
+                          {u.id === currentUserId ? " (moi)" : ""}
+                        </option>
+                      ))}
+                      <option value="">Non attribuée</option>
+                    </select>
+                  </label>
+                  <label>
                     Contenu
                     <textarea className="textarea" name="contenu" />
                   </label>
@@ -1374,6 +1447,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                             <strong>{action.titre}</strong>
                             <p className="muted" style={{ margin: "4px 0 0" }}>
                               {ACTION_CHANNEL_LABELS[action.channel]} · {formatDateTime(action.datePrevue)}
+                              {action.user ? ` · ${userLabel(action.user)}` : ""}
                             </p>
                           </div>
                           <span className="badge badge-gray">{ACTION_STATUT_LABELS[action.statut]}</span>

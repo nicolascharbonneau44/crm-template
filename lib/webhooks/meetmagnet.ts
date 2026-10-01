@@ -58,8 +58,13 @@ export async function updateMeetMagnetSettings(input: {
   defaultCategory?: unknown;
   defaultState?: unknown;
   createTask?: unknown;
+  defaultOwnerId?: unknown;
 }) {
   await getMeetMagnetWebhook();
+  if (input.defaultOwnerId !== undefined && input.defaultOwnerId !== null && input.defaultOwnerId !== "") {
+    const exists = typeof input.defaultOwnerId === "string" && (await prisma.user.findUnique({ where: { id: input.defaultOwnerId } }));
+    if (!exists) throw new WebhookPayloadError("Responsable inconnu");
+  }
   if (input.defaultCategory !== undefined && !isPersonCategory(input.defaultCategory)) {
     throw new WebhookPayloadError("Catégorie invalide");
   }
@@ -72,6 +77,7 @@ export async function updateMeetMagnetSettings(input: {
       ...(input.defaultCategory !== undefined ? { defaultCategory: input.defaultCategory as string } : {}),
       ...(input.defaultState !== undefined ? { defaultState: input.defaultState as string } : {}),
       ...(typeof input.createTask === "boolean" ? { createTask: input.createTask } : {}),
+      ...(input.defaultOwnerId !== undefined ? { defaultOwnerId: (input.defaultOwnerId as string) || null } : {}),
     },
   });
 }
@@ -145,7 +151,7 @@ async function logDelivery(data: {
 async function processLead(
   event: string,
   item: LeadItem,
-  settings: { defaultCategory: string; defaultState: string; createTask: boolean },
+  settings: { defaultCategory: string; defaultState: string; createTask: boolean; defaultOwnerId: string | null },
 ): Promise<LeadResult> {
   const lead = item.lead ?? {};
   const person = item.person ?? {};
@@ -214,6 +220,7 @@ async function processLead(
       category: settings.defaultCategory as PersonCategory,
       state: settings.defaultState as PersonState,
       source: "MeetMagnet",
+      ownerId: settings.defaultOwnerId ?? undefined,
     },
   });
   const contactId = imported.contactIds[0];
@@ -234,7 +241,7 @@ async function processLead(
       contenu: replyContent(reply, item.messages ?? []),
       statut: "a_faire",
       datePrevue: new Date(),
-    });
+    }, settings.defaultOwnerId);
     withTask = true;
   }
 

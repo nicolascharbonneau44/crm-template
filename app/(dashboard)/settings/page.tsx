@@ -9,7 +9,8 @@ import type { PersonCategory, PersonState } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { isMailConfigured, mailSender } from "@/lib/mailer";
 import { ImportWizard } from "./import-wizard";
-import { ChangePasswordForm, ClaudeConnect, MeetMagnetSettings, RevokeButton } from "./settings-client";
+import { ChangePasswordForm, ClaudeConnect, MeetMagnetSettings, RevokeButton, UsersManager } from "./settings-client";
+import { listUsers, userDisplayName } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ const TABS = [
   { id: "connexions", label: "Connexions MCP" },
   { id: "import", label: "Import & enrichissement" },
   { id: "integrations", label: "Intégrations" },
+  { id: "utilisateurs", label: "Utilisateurs" },
   { id: "compte", label: "Mon compte" },
 ] as const;
 
@@ -52,6 +54,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
         <IntegrationsSettings />
       ) : tab === "compte" ? (
         <AccountSettings />
+      ) : tab === "utilisateurs" ? (
+        <UsersSettings />
       ) : (
         <McpSettings />
       )}
@@ -68,7 +72,7 @@ const DELIVERY_BADGES: Record<string, { label: string; badge: string }> = {
 };
 
 async function IntegrationsSettings() {
-  const [webhook, deliveries] = await Promise.all([getMeetMagnetWebhook(), listMeetMagnetDeliveries()]);
+  const [webhook, deliveries, users] = await Promise.all([getMeetMagnetWebhook(), listMeetMagnetDeliveries(), listUsers()]);
   const url = webhookUrl(publicBaseUrl(await headers()), webhook.token);
   return (
     <>
@@ -83,6 +87,8 @@ async function IntegrationsSettings() {
           defaultCategory={webhook.defaultCategory as PersonCategory}
           defaultState={webhook.defaultState as PersonState}
           createTask={webhook.createTask}
+          defaultOwnerId={webhook.defaultOwnerId}
+          users={users.map((u) => ({ id: u.id, label: userDisplayName(u) }))}
         />
       </section>
       <section className="settings-section">
@@ -119,6 +125,21 @@ async function IntegrationsSettings() {
         )}
       </section>
     </>
+  );
+}
+
+async function UsersSettings() {
+  const [me, users] = await Promise.all([getSessionUser(), listUsers()]);
+  return (
+    <section className="settings-section wide">
+      <h2>Utilisateurs</h2>
+      <p>
+        Chaque personne se connecte avec son propre compte et retrouve ses relances dans Actions → « Mes relances » (et
+        dans Claude : « mes relances du jour »). Les contacts et les actions ont un responsable, modifiable sur chaque
+        fiche ou en sélectionnant plusieurs lignes.
+      </p>
+      <UsersManager users={users} currentUserId={me?.id ?? ""} />
+    </section>
   );
 }
 
@@ -163,7 +184,12 @@ async function AccountSettings() {
 }
 
 async function ImportSettings() {
-  const [contact, company] = await Promise.all([listCustomColumns("contact"), listCustomColumns("company")]);
+  const [contact, company, users, me] = await Promise.all([
+    listCustomColumns("contact"),
+    listCustomColumns("company"),
+    listUsers(),
+    getSessionUser(),
+  ]);
   const pick = (list: typeof contact) => list.map(({ key, label, type }) => ({ key, label, type }));
   return (
     <section className="settings-section wide">
@@ -172,7 +198,11 @@ async function ImportSettings() {
         Ajoutez un fichier (CSV, Excel, Google Sheets…) : les colonnes sont associées automatiquement aux champs du CRM,
         vous ajustez si besoin. Les fiches déjà présentes sont complétées plutôt que dupliquées.
       </p>
-      <ImportWizard customColumns={{ contact: pick(contact), company: pick(company) }} />
+      <ImportWizard
+        customColumns={{ contact: pick(contact), company: pick(company) }}
+        users={users.map((u) => ({ id: u.id, label: userDisplayName(u) }))}
+        currentUserId={me?.id ?? ""}
+      />
     </section>
   );
 }

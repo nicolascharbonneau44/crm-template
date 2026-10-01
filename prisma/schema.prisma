@@ -78,6 +78,7 @@ model User {
   stateChanges ContactStateHistory[]
   mcpCodes       McpAuthCode[]
   mcpConnections McpConnection[]
+  ownedContacts  Contact[] @relation("ContactOwner")
 }
 
 model Company {
@@ -116,6 +117,8 @@ model Contact {
   state                 PersonState    @default(new_lead)
   companyId             String?
   company               Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  ownerId               String?
+  owner                 User?          @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   prochaineActionTitre  String?
   prochaineActionDate   DateTime?
   customFields          String         @default("{}")
@@ -127,6 +130,7 @@ model Contact {
   @@index([category])
   @@index([state])
   @@index([companyId])
+  @@index([ownerId])
   @@index([nom])
   @@index([prenom])
   @@index([prochaineActionDate])
@@ -165,6 +169,7 @@ model Action {
   updatedAt       DateTime      @updatedAt
 
   @@index([contactId])
+  @@index([userId])
   @@index([statut])
   @@index([channel])
   @@index([datePrevue])
@@ -259,6 +264,7 @@ model InboundWebhook {
   defaultCategory String   @default("lead")
   defaultState    String   @default("new_lead")
   createTask      Boolean  @default(true)
+  defaultOwnerId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

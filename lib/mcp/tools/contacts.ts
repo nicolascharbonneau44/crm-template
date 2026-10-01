@@ -15,9 +15,12 @@ import {
   pagination,
   paginationSchema,
   requireString,
+  userRefArg,
+  userRefSchema,
   type McpTool,
   type ToolArgs,
 } from "@/lib/mcp/types";
+import { userDisplayName } from "@/lib/users";
 
 const contactFields = {
   civilite: {
@@ -53,12 +56,21 @@ const contactFields = {
     type: "string",
     description: "Rattache le contact à l'entreprise de ce nom, créée automatiquement si elle n'existe pas.",
   },
+  owner: {
+    ...userRefSchema,
+    description: `${userRefSchema.description} Responsable du contact (par défaut à la création : l'utilisateur connecté).`,
+  },
   prochaineActionTitre: { type: ["string", "null"] },
   prochaineActionDate: { type: ["string", "null"], description: "Date ISO 8601" },
   customFields: customFieldsSchema,
 };
 
-export function contactSummary(contact: Contact & { company?: Pick<Company, "id" | "nom"> | null }) {
+export function contactSummary(
+  contact: Contact & {
+    company?: Pick<Company, "id" | "nom"> | null;
+    owner?: { id: string; email: string; fullName: string | null } | null;
+  },
+) {
   return {
     id: contact.id,
     civilite: contact.civilite,
@@ -71,6 +83,7 @@ export function contactSummary(contact: Contact & { company?: Pick<Company, "id"
     state: contact.state,
     source: contact.source,
     company: contact.company ? { id: contact.company.id, nom: contact.company.nom } : null,
+    responsable: contact.owner ? { id: contact.owner.id, nom: userDisplayName(contact.owner) } : null,
     prochaineActionTitre: contact.prochaineActionTitre,
     prochaineActionDate: contact.prochaineActionDate,
     customFields: contact.customFields,
@@ -127,14 +140,16 @@ export const contactTools: McpTool[] = [
         category: { type: "string", enum: PERSON_CATEGORIES },
         state: { type: "string", enum: PERSON_STATES },
         companyId: { type: "string", description: "Uniquement les contacts de cette entreprise" },
+        owner: { ...userRefSchema, description: `${userRefSchema.description} Filtre sur le responsable (« me » = mes contacts, null = non attribués).` },
         source: { type: "string" },
         ...paginationSchema,
       },
     },
-    async handler(args) {
+    async handler(args, ctx) {
       const { page, pageSize } = pagination(args);
       const result = await listContacts(
         {
+          ownerId: await userRefArg(args, "owner", ctx),
           q: optionalString(args, "query"),
           category: optionalEnum(args, "category", PERSON_CATEGORIES),
           state: optionalEnum(args, "state", PERSON_STATES),
@@ -163,7 +178,11 @@ export const contactTools: McpTool[] = [
         where: { id },
         include: {
           company: true,
-          actions: { orderBy: [{ datePrevue: "asc" }, { createdAt: "desc" }] },
+          owner: { select: { id: true, email: true, fullName: true } },
+          actions: {
+            orderBy: [{ datePrevue: "asc" }, { createdAt: "desc" }],
+            include: { user: { select: { id: true, email: true, fullName: true } } },
+          },
           stateHistory: { orderBy: { createdAt: "desc" }, take: 20 },
         },
       });
@@ -196,7 +215,11 @@ export const contactTools: McpTool[] = [
         }
       }
       const link = await resolveCompanyLink(args);
-      const contact = await createContact({ ...input, companyId: link.companyId ?? null }, ctx.userId ?? undefined);
+      const owner = await userRefArg(args, "owner", ctx);
+      const contact = await createContact(
+        { ...input, companyId: link.companyId ?? null, ownerId: owner === undefined ? ctx.userId : owner },
+        ctx.userId ?? undefined,
+      );
       return { contact: contactSummary(contact), ...(link.createdCompany ? { entrepriseCreee: link.createdCompany } : {}) };
     },
   },
@@ -226,7 +249,11 @@ export const contactTools: McpTool[] = [
         }
       }
       const link = await resolveCompanyLink(args);
-      const contact = await updateContact(id, { ...input, companyId: link.companyId }, ctx.userId ?? undefined);
+      const contact = await updateContact(
+        id,
+        { ...input, companyId: link.companyId, ownerId: await userRefArg(args, "owner", ctx) },
+        ctx.userId ?? undefined,
+      );
       if (!contact) throw new ToolError(`Contact introuvable (id ${id}).`);
       return { contact: contactSummary(contact), ...(link.createdCompany ? { entrepriseCreee: link.createdCompany } : {}) };
     },

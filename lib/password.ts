@@ -30,6 +30,22 @@ function trustedBaseUrl(headers: Headers) {
   return publicBaseUrl(headers);
 }
 
+/** Lien « choisir un mot de passe » à usage unique ; remplace les liens précédents de l'utilisateur. */
+export async function issuePasswordLink(userId: string, ttlMs: number, headers: Headers) {
+  const token = randomBytes(32).toString("base64url");
+  await prisma.$transaction([
+    prisma.passwordResetToken.deleteMany({ where: { userId } }),
+    prisma.passwordResetToken.create({
+      data: { tokenHash: sha256(token), userId, expiresAt: new Date(Date.now() + ttlMs) },
+    }),
+  ]);
+  return `${trustedBaseUrl(headers)}/reset-password?token=${token}`;
+}
+
+export function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
 /** Ne révèle jamais si l'email existe : l'appelant répond toujours la même chose. */
 export async function requestPasswordReset(rawEmail: unknown, headers: Headers) {
   const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
@@ -42,15 +58,7 @@ export async function requestPasswordReset(rawEmail: unknown, headers: Headers) 
   });
   if (recent) return;
 
-  const token = randomBytes(32).toString("base64url");
-  await prisma.$transaction([
-    prisma.passwordResetToken.deleteMany({ where: { userId: user.id } }),
-    prisma.passwordResetToken.create({
-      data: { tokenHash: sha256(token), userId: user.id, expiresAt: new Date(Date.now() + RESET_TTL_MS) },
-    }),
-  ]);
-
-  const link = `${trustedBaseUrl(headers)}/reset-password?token=${token}`;
+  const link = await issuePasswordLink(user.id, RESET_TTL_MS, headers);
   if (!isMailConfigured()) {
     // Sans SMTP, seul l'administrateur Railway (accès aux logs) peut récupérer le lien.
     console.warn(`[mot de passe] SMTP non configuré — lien de réinitialisation pour ${email} : ${link}`);
@@ -76,10 +84,6 @@ export async function requestPasswordReset(rawEmail: unknown, headers: Headers) 
 <p style="font-size:13px;color:#6b6b69">Ce lien est valable 1 heure et ne peut servir qu'une fois.<br>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe reste inchangé.</p>
 </div>`,
   });
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 export async function isResetTokenValid(token: string) {

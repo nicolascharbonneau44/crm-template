@@ -13,7 +13,11 @@ export type ContactFilters = {
   poste?: string;
   civilite?: string;
   companyId?: string;
+  /** Responsable ; null = contacts non attribués. */
+  ownerId?: string | null;
 };
+
+const OWNER_SELECT = { select: { id: true, email: true, fullName: true } } as const;
 
 export type ContactSort = {
   field: string;
@@ -61,6 +65,7 @@ function buildWhere(filters: ContactFilters = {}): Prisma.ContactWhereInput {
   if (filters.poste?.trim()) and.push({ poste: { contains: filters.poste.trim() } });
   if (filters.companyId) where.companyId = filters.companyId;
   if (filters.civilite?.trim()) where.civilite = filters.civilite.trim();
+  if (filters.ownerId !== undefined) where.ownerId = filters.ownerId;
 
   if (and.length) where.AND = and;
   return where;
@@ -89,7 +94,7 @@ export async function listContacts(
     prisma.contact.count({ where }),
     prisma.contact.findMany({
       where,
-      include: { company: true },
+      include: { company: true, owner: OWNER_SELECT },
       orderBy: buildOrderBy(options.sorts),
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -103,12 +108,17 @@ export async function getContact(id: string) {
     where: { id },
     include: {
       company: true,
-      actions: { orderBy: [{ datePrevue: "asc" }, { createdAt: "desc" }] },
+      owner: OWNER_SELECT,
+      actions: {
+        orderBy: [{ datePrevue: "asc" }, { createdAt: "desc" }],
+        include: { user: OWNER_SELECT },
+      },
     },
   });
 }
 
 export type ContactInput = {
+  ownerId?: string | null;
   civilite?: string | null;
   prenom?: string;
   nom?: string;
@@ -160,11 +170,12 @@ export async function createContact(input: ContactInput, changedById?: string) {
         category: lifecycle.category,
         state: lifecycle.state,
         companyId: input.companyId || null,
+        ownerId: input.ownerId || null,
         prochaineActionTitre: cleanOptional(input.prochaineActionTitre) ?? null,
         prochaineActionDate: input.prochaineActionDate ?? null,
         customFields: stringifyCustomFields(input.customFields ?? {}),
       },
-      include: { company: true },
+      include: { company: true, owner: OWNER_SELECT },
     });
 
     await tx.contactStateHistory.create({
@@ -211,6 +222,7 @@ export async function updateContact(id: string, input: ContactInput, changedById
         ...(input.pays !== undefined ? { pays: cleanOptional(input.pays) } : {}),
         ...(input.source !== undefined ? { source: cleanOptional(input.source) } : {}),
         ...(input.companyId !== undefined ? { companyId: input.companyId || null } : {}),
+        ...(input.ownerId !== undefined ? { ownerId: input.ownerId || null } : {}),
         ...(input.prochaineActionTitre !== undefined
           ? { prochaineActionTitre: cleanOptional(input.prochaineActionTitre) }
           : {}),
@@ -230,7 +242,11 @@ export async function updateContact(id: string, input: ContactInput, changedById
       },
       include: {
         company: true,
-        actions: { orderBy: [{ datePrevue: "asc" }, { createdAt: "desc" }] },
+        owner: OWNER_SELECT,
+        actions: {
+          orderBy: [{ datePrevue: "asc" }, { createdAt: "desc" }],
+          include: { user: OWNER_SELECT },
+        },
       },
     });
 
@@ -257,7 +273,7 @@ export async function deleteContact(id: string) {
 
 export async function bulkUpdateContacts(
   ids: string[],
-  patch: { category?: PersonCategory; state?: PersonState },
+  patch: { category?: PersonCategory; state?: PersonState; ownerId?: string | null },
   changedById?: string,
 ) {
   const results = [];

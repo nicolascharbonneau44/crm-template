@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { createAction, deleteAction, listActions, updateAction, type ActionInput } from "@/lib/actions";
+import { DUE_FILTERS } from "@/lib/dates";
 import { ACTION_CHANNELS, ACTION_STATUTS, PERSON_CATEGORIES } from "@/lib/labels";
+import { userDisplayName } from "@/lib/users";
 import {
   ToolError,
   customFieldsArg,
@@ -12,6 +14,8 @@ import {
   pagination,
   paginationSchema,
   requireString,
+  userRefArg,
+  userRefSchema,
   type McpTool,
   type ToolArgs,
 } from "@/lib/mcp/types";
@@ -27,10 +31,14 @@ const actionFields = {
   },
   datePrevue: { type: ["string", "null"], description: "Échéance, date ISO 8601" },
   dateRealisation: { type: ["string", "null"], description: "Date de réalisation, ISO 8601" },
+  assignee: {
+    ...userRefSchema,
+    description: `${userRefSchema.description} Personne chargée de la relance. Par défaut : responsable du contact, sinon l'utilisateur connecté.`,
+  },
   customFields: customFieldsSchema,
 };
 
-function actionSummary(action: Awaited<ReturnType<typeof listActions>>["data"][number]) {
+export function actionSummary(action: Awaited<ReturnType<typeof listActions>>["data"][number]) {
   const { contact, user, ...rest } = action;
   return {
     ...rest,
@@ -40,7 +48,7 @@ function actionSummary(action: Awaited<ReturnType<typeof listActions>>["data"][n
       nom: contact.nom,
       company: contact.company ? { id: contact.company.id, nom: contact.company.nom } : null,
     },
-    user: user ? { id: user.id, email: user.email } : null,
+    assignee: user ? { id: user.id, nom: userDisplayName(user) } : null,
   };
 }
 
@@ -62,25 +70,33 @@ export const actionTools: McpTool[] = [
     title: "Rechercher des actions",
     kind: "read",
     description:
-      "Recherche les actions (tâches, appels, emails, rendez-vous, notes) avec filtres : contact, entreprise, statut, canal, catégorie du contact, en retard. Tri par échéance.",
+      "Recherche les actions (tâches, appels, emails, rendez-vous, notes) avec filtres : utilisateur assigné, échéance, contact, entreprise, statut, canal, catégorie du contact. Tri par échéance. Pour « mes relances du jour », préférez list_followups.",
     inputSchema: {
       type: "object",
       properties: {
         query: { type: "string", description: "Texte dans le titre, le contenu ou le nom du contact" },
+        assignee: { ...userRefSchema, description: `${userRefSchema.description} Filtre sur l'utilisateur assigné.` },
+        due: {
+          type: "string",
+          enum: DUE_FILTERS,
+          description: "Actions non terminées : today = échéance aujourd'hui ou avant, overdue = en retard, week = d'ici dimanche",
+        },
         contactId: { type: "string" },
         companyId: { type: "string", description: "Actions des contacts de cette entreprise" },
         statut: { type: "string", enum: ACTION_STATUTS },
         channel: { type: "string", enum: ACTION_CHANNELS },
         contactCategory: { type: "string", enum: PERSON_CATEGORIES },
-        overdue: { type: "boolean", description: "Uniquement les actions non terminées dont l'échéance est passée" },
+        overdue: { type: "boolean", description: "Équivaut à due=overdue" },
         ...paginationSchema,
       },
     },
-    async handler(args) {
+    async handler(args, ctx) {
       const { page, pageSize } = pagination(args);
       const result = await listActions(
         {
           q: optionalString(args, "query"),
+          assigneeId: await userRefArg(args, "assignee", ctx),
+          due: optionalEnum(args, "due", DUE_FILTERS),
           contactId: optionalString(args, "contactId"),
           companyId: optionalString(args, "companyId"),
           statut: optionalEnum(args, "statut", ACTION_STATUTS),
@@ -98,7 +114,7 @@ export const actionTools: McpTool[] = [
     title: "Créer une action",
     kind: "write",
     description:
-      "Crée une action liée à un contact (obligatoire : contactId, channel, titre). Pour une simple note, channel=note et statut=termine. Met à jour la « prochaine action » du contact.",
+      "Crée une action / relance liée à un contact (obligatoire : contactId, channel, titre). Assignée par défaut au responsable du contact, sinon à l'utilisateur connecté. Pour une simple note, channel=note et statut=termine.",
     inputSchema: {
       type: "object",
       properties: {
@@ -115,7 +131,8 @@ export const actionTools: McpTool[] = [
       if (!input.channel) throw new ToolError(`« channel » requis : ${ACTION_CHANNELS.join(", ")}.`);
       const titre = requireString(args, "titre");
       if (input.statut === "termine" && input.dateRealisation === undefined) input.dateRealisation = new Date();
-      return actionSummary(await createAction({ ...input, titre, contactId, userId: ctx.userId }));
+      const userId = await userRefArg(args, "assignee", ctx);
+      return actionSummary(await createAction({ ...input, titre, contactId, userId }, ctx.userId));
     },
   },
   {
@@ -123,17 +140,17 @@ export const actionTools: McpTool[] = [
     title: "Modifier une action",
     kind: "write",
     description:
-      "Modifie une action (titre, contenu, canal, statut, échéance, colonnes personnalisées). Passer statut=termine pour la clôturer. Seuls les champs fournis sont changés.",
+      "Modifie une action (titre, contenu, canal, statut, échéance, utilisateur assigné, colonnes personnalisées). Passer statut=termine pour la clôturer. Seuls les champs fournis sont changés.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, ...actionFields },
       required: ["id"],
     },
-    async handler(args) {
+    async handler(args, ctx) {
       const id = requireString(args, "id");
       const input = await actionInput(args);
       if (input.titre !== undefined && !input.titre.trim()) throw new ToolError("Le titre ne peut pas être vide.");
-      const action = await updateAction(id, input);
+      const action = await updateAction(id, { ...input, userId: await userRefArg(args, "assignee", ctx) });
       if (!action) throw new ToolError(`Action introuvable (id ${id}).`);
       return actionSummary(action);
     },

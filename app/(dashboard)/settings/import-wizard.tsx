@@ -85,7 +85,15 @@ function isValidTarget(target: string, custom: CustomColumns) {
   return true;
 }
 
-export function ImportWizard({ customColumns }: { customColumns: CustomColumns }) {
+export function ImportWizard({
+  customColumns,
+  users,
+  currentUserId,
+}: {
+  customColumns: CustomColumns;
+  users: { id: string; label: string }[];
+  currentUserId: string;
+}) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const lastFile = useRef<File | null>(null);
@@ -99,6 +107,7 @@ export function ImportWizard({ customColumns }: { customColumns: CustomColumns }
   const [category, setCategory] = useState<PersonCategory>("lead");
   const [state, setState] = useState<PersonState>(PERSON_CATEGORY_DEFAULT_STATES.lead);
   const [source, setSource] = useState("");
+  const [ownerId, setOwnerId] = useState(currentUserId);
   const [showEmpty, setShowEmpty] = useState(false);
 
   const [dragging, setDragging] = useState(false);
@@ -285,7 +294,7 @@ export function ImportWizard({ customColumns }: { customColumns: CustomColumns }
             columns: finalTargets,
             rows: table.rows.slice(start, start + MAX_ROWS_PER_REQUEST),
             firstLine: start + 2,
-            defaults: { category, state, source },
+            defaults: { category, state, source, ownerId: ownerId || undefined },
           }),
         });
         const data = (await res.json()) as ImportResult & { error?: string };
@@ -611,6 +620,21 @@ export function ImportWizard({ customColumns }: { customColumns: CustomColumns }
               </select>
             </label>
           </>
+        ) : null}
+        {mode === "contacts" ? (
+          <label>
+            Responsable des contacts
+            <select className="input" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.label}
+                  {u.id === currentUserId ? " (moi)" : ""}
+                </option>
+              ))}
+              <option value="">Non attribué</option>
+            </select>
+            <span className="hint">Appliqué aux nouveaux contacts et à ceux qui n’ont pas encore de responsable.</span>
+          </label>
         ) : null}
         {mode === "contacts" && !has("contact.source") ? (
           <label>

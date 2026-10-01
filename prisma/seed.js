@@ -12,7 +12,7 @@ async function main() {
     await prisma.user.create({
       data: {
         email: adminEmail,
-        fullName: "Administrateur",
+        fullName: process.env.ADMIN_NAME?.trim() || "Administrateur",
         role: "admin",
         passwordHash: await bcrypt.hash(adminPassword, 10),
       },

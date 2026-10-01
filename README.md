@@ -150,6 +150,18 @@ Gestes utiles :
 
 Changez le mot de passe admin dès que possible (demandez à Cursor/Claude de vous ajouter une page “changer mon mot de passe” si besoin).
 
+### 5.0 Plusieurs utilisateurs et « Mes relances »
+
+**Paramètres → Utilisateurs** : ajoutez chaque personne (nom + email). Elle reçoit un lien (par email si SMTP est
+configuré, sinon à copier) pour choisir son mot de passe.
+
+- Chaque contact a un **responsable**, chaque action / relance une personne **assignée**
+  (par défaut : le responsable du contact, sinon la personne qui crée l’action).
+- **Actions → « Mes relances »** + « Aujourd’hui » / « En retard » / « Cette semaine » (heure de Paris).
+- Réattribuer : sur la fiche, ou en sélectionnant plusieurs lignes (Contacts → Modifier, Actions → Attribuer à…).
+- Dans Claude, chacun connecte son propre compte : « sors-moi mes relances du jour » ne renvoie que les siennes
+  (outil `list_followups`) ; « les relances de Virginie cette semaine » fonctionne aussi.
+
 ### 5.1 Importer et enrichir (CSV, Excel, Google Sheets)
 
 **Paramètres → Import & enrichissement** :

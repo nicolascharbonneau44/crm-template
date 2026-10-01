@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { deleteContact, getContact, updateContact } from "@/lib/contacts";
 import { isPersonCategory, isPersonState, normalizeCivilite, parseOptionalDate } from "@/lib/labels";
+import { UserError, resolveUserRef } from "@/lib/users";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -27,10 +28,18 @@ export async function PATCH(request: Request, context: Ctx) {
   if (body.civilite !== undefined && civilite === undefined) {
     return NextResponse.json({ error: "Civilité invalide (Monsieur ou Madame)" }, { status: 400 });
   }
+  let ownerId: string | null | undefined;
+  try {
+    ownerId = await resolveUserRef(body.ownerId, user?.id ?? null);
+  } catch (error) {
+    if (error instanceof UserError) return NextResponse.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
 
   const contact = await updateContact(
     id,
     {
+      ownerId,
       civilite,
       prenom: body.prenom,
       nom: body.nom,

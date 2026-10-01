@@ -1,5 +1,6 @@
 import type { ActionChannel, ActionStatut, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { dayBounds, endOfWeek, type DueFilter } from "@/lib/dates";
 import { refreshContactNextAction } from "@/lib/contacts";
 import { isActionChannel, isActionStatut, isPersonCategory } from "@/lib/labels";
 import { parseCustomFields, stringifyCustomFields } from "@/lib/custom-columns";
@@ -12,6 +13,10 @@ export type ActionFilters = {
   contactId?: string;
   companyId?: string;
   overdue?: boolean;
+  /** Échéance : aujourd'hui (retards inclus), en retard, ou d'ici dimanche — actions non terminées. */
+  due?: DueFilter;
+  /** Utilisateur assigné ; null = actions non attribuées. */
+  assigneeId?: string | null;
   titre?: string;
 };
 
@@ -28,10 +33,14 @@ function buildWhere(filters: ActionFilters = {}): Prisma.ActionWhereInput {
   }
   if (filters.companyId) contactWhere.companyId = filters.companyId;
   if (Object.keys(contactWhere).length) where.contact = contactWhere;
-  if (filters.overdue) {
-    where.datePrevue = { lt: new Date() };
+  const due = filters.due ?? (filters.overdue ? "overdue" : undefined);
+  if (due) {
+    const now = new Date();
+    where.datePrevue =
+      due === "overdue" ? { lt: now } : { lte: due === "today" ? dayBounds(now).end : endOfWeek(now) };
     if (!where.statut) where.statut = { not: "termine" };
   }
+  if (filters.assigneeId !== undefined) where.userId = filters.assigneeId;
   if (filters.titre?.trim()) where.titre = { contains: filters.titre.trim() };
   if (filters.q?.trim()) {
     const q = filters.q.trim();
@@ -99,10 +108,19 @@ export type ActionInput = {
   customFields?: Record<string, unknown>;
 };
 
-export async function createAction(input: ActionInput) {
+/**
+ * Assignation par défaut (userId non fourni) : responsable du contact, sinon `fallbackUserId`
+ * (en général l'utilisateur qui crée l'action).
+ */
+export async function createAction(input: ActionInput, fallbackUserId?: string | null) {
   if (!input.contactId) throw new Error("contactId requis");
   if (!input.channel) throw new Error("channel requis");
   if (!input.titre?.trim()) throw new Error("titre requis");
+  let userId = input.userId;
+  if (userId === undefined) {
+    const contact = await prisma.contact.findUnique({ where: { id: input.contactId }, select: { ownerId: true } });
+    userId = contact?.ownerId ?? fallbackUserId ?? null;
+  }
 
   const action = await prisma.action.create({
     data: {
@@ -113,7 +131,7 @@ export async function createAction(input: ActionInput) {
       statut: input.statut ?? "a_faire",
       datePrevue: input.datePrevue ?? null,
       dateRealisation: input.dateRealisation ?? null,
-      userId: input.userId ?? null,
+      userId,
       customFields: stringifyCustomFields(input.customFields ?? {}),
     },
     include: {
@@ -180,6 +198,11 @@ export async function bulkDeleteActions(ids: string[]) {
     await refreshContactNextAction(contactId);
   }
   return result;
+}
+
+export async function bulkAssignActions(ids: string[], userId: string | null) {
+  const result = await prisma.action.updateMany({ where: { id: { in: ids } }, data: { userId } });
+  return { count: result.count };
 }
 
 export async function bulkUpdateActionStatut(ids: string[], statut: ActionStatut) {

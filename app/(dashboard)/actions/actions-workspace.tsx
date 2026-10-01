@@ -31,6 +31,7 @@ import {
   type CustomColumnRecord,
 } from "@/lib/custom-columns";
 import { CustomColumnModal } from "@/app/components/custom-column-modal";
+import { UserFilterOptions, userLabel, useUsers, type CrmUser } from "@/app/components/use-users";
 
 type ActionRow = {
   id: string;
@@ -40,6 +41,7 @@ type ActionRow = {
   statut: ActionStatut;
   datePrevue: string | Date | null;
   customFields?: string | Record<string, unknown>;
+  user: CrmUser | null;
   contact: {
     id: string;
     prenom: string;
@@ -58,13 +60,20 @@ const BASE_COLUMN_DEFS: ColumnDef[] = [
   { key: "channel", label: "Canal" },
   { key: "statut", label: "Statut" },
   { key: "datePrevue", label: "Date prévue" },
+  { key: "assignee", label: "Responsable" },
 ];
 
+const DUE_LABELS: Record<string, string> = {
+  today: "Aujourd’hui (retards inclus)",
+  overdue: "En retard",
+  week: "Cette semaine",
+};
+
 const DEFAULT_LAYOUT: ListLayoutState = {
-  visibleColumnKeys: ["titre", "contact", "channel", "statut", "datePrevue"],
+  visibleColumnKeys: ["titre", "contact", "channel", "statut", "datePrevue", "assignee"],
   columnOrder: BASE_COLUMN_DEFS.map((c) => c.key),
   viewMode: "list",
-  filterRows: [],
+  filterRows: [{ id: "f-me", field: "assignee", op: "eq", value: "me" }],
   sortRows: [{ id: "s1", field: "datePrevue", direction: "asc" }],
   kanbanGroupBy: "statut",
   pageSize: 25,
@@ -91,6 +100,22 @@ export function ActionsWorkspace() {
   const [customColumns, setCustomColumns] = useState<CustomColumnRecord[]>([]);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<CustomColumnRecord | null>(null);
+  const [bulkAssignee, setBulkAssignee] = useState("");
+  const { users, currentUserId } = useUsers();
+
+  const filterValue = (field: string) => layout.filterRows.find((r) => r.field === field)?.value ?? "";
+
+  /** Filtre rapide : remplace (ou retire si value vide) la ligne de filtre du champ. */
+  function setQuickFilter(field: string, value: string) {
+    setLayout((prev) => ({
+      ...prev,
+      filterRows: [
+        ...prev.filterRows.filter((r) => r.field !== field),
+        ...(value ? [{ id: uid("f"), field, op: "eq" as const, value }] : []),
+      ],
+    }));
+    setPage(1);
+  }
 
   useEffect(() => {
     setLayout(loadLayout(STORAGE_KEY, DEFAULT_LAYOUT));
@@ -195,6 +220,18 @@ export function ActionsWorkspace() {
     await fetchActions();
   }
 
+  async function bulkAssign(assigneeId: string) {
+    if (!assigneeId) return;
+    await fetch("/api/actions/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "assign", ids: selectedIds, assigneeId: assigneeId === "none" ? null : assigneeId }),
+    });
+    setBulkAssignee("");
+    setSelectedIds([]);
+    await fetchActions();
+  }
+
   async function bulkComplete() {
     await fetch("/api/actions/bulk", {
       method: "POST",
@@ -277,6 +314,8 @@ export function ActionsWorkspace() {
         return <span className="badge badge-gray">{ACTION_STATUT_LABELS[action.statut]}</span>;
       case "datePrevue":
         return <span className="muted">{formatDateTime(action.datePrevue)}</span>;
+      case "assignee":
+        return action.user ? userLabel(action.user) : <span className="muted">Non attribuée</span>;
       default:
         return "—";
     }
@@ -412,6 +451,22 @@ export function ActionsWorkspace() {
             <button className="btn small" type="button" onClick={() => void bulkComplete()}>
               Terminer ({selectedIds.length})
             </button>
+            <select
+              className="select"
+              style={{ width: 170 }}
+              value={bulkAssignee}
+              onChange={(e) => void bulkAssign(e.target.value)}
+              aria-label="Attribuer les actions sélectionnées"
+            >
+              <option value="">Attribuer à…</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {userLabel(u)}
+                  {u.id === currentUserId ? " (moi)" : ""}
+                </option>
+              ))}
+              <option value="none">Non attribuée</option>
+            </select>
             <button className="btn danger small" type="button" onClick={() => void bulkDelete()}>
               Supprimer ({selectedIds.length})
             </button>
@@ -449,6 +504,42 @@ export function ActionsWorkspace() {
         </div>
       </div>
 
+      <div className="quick-filters">
+        <div className="segmented" role="group" aria-label="Responsable">
+          <button
+            type="button"
+            className={filterValue("assignee") === "me" ? "active" : ""}
+            onClick={() => setQuickFilter("assignee", "me")}
+          >
+            Mes relances
+          </button>
+          <button
+            type="button"
+            className={!filterValue("assignee") ? "active" : ""}
+            onClick={() => setQuickFilter("assignee", "")}
+          >
+            Toute l’équipe
+          </button>
+        </div>
+        <div className="segmented" role="group" aria-label="Échéance">
+          {[
+            ["", "Toutes dates"],
+            ["today", "Aujourd’hui"],
+            ["overdue", "En retard"],
+            ["week", "Cette semaine"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={filterValue("due") === value ? "active" : ""}
+              onClick={() => setQuickFilter("due", value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {showFilters ? (
         <div className="panel-soft">
           {layout.filterRows.map((row) => (
@@ -468,8 +559,21 @@ export function ActionsWorkspace() {
                 <option value="statut">Statut</option>
                 <option value="contactCategory">Catégorie contact</option>
                 <option value="titre">Titre</option>
+                <option value="assignee">Responsable</option>
+                <option value="due">Échéance</option>
               </select>
-              {row.field === "channel" ? (
+              {row.field === "assignee" ? (
+                <select className="select" style={{ width: 180 }} value={row.value} onChange={(e) => { setLayout((prev) => ({ ...prev, filterRows: prev.filterRows.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)) })); setPage(1); }}>
+                  <UserFilterOptions users={users} currentUserId={currentUserId} />
+                </select>
+              ) : row.field === "due" ? (
+                <select className="select" style={{ width: 200 }} value={row.value} onChange={(e) => { setLayout((prev) => ({ ...prev, filterRows: prev.filterRows.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)) })); setPage(1); }}>
+                  <option value="">—</option>
+                  {Object.entries(DUE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              ) : row.field === "channel" ? (
                 <select className="select" style={{ width: 160 }} value={row.value} onChange={(e) => { setLayout((prev) => ({ ...prev, filterRows: prev.filterRows.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)) })); setPage(1); }}>
                   <option value="">—</option>
                   {ACTION_CHANNELS.map((c) => (
@@ -638,6 +742,7 @@ export function ActionsWorkspace() {
                       <h3>{action.titre}</h3>
                       <p className="muted" style={{ margin: 0 }}>
                         {contactDisplayName(action.contact)} · {ACTION_CHANNEL_LABELS[action.channel]}
+                        {action.user ? ` · ${userLabel(action.user)}` : ""}
                       </p>
                     </article>
                   ))}

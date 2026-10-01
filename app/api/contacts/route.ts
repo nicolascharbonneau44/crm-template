@@ -3,9 +3,17 @@ import { getSessionUser } from "@/lib/auth";
 import { createContact, listContacts } from "@/lib/contacts";
 import { isPersonCategory, isPersonState, normalizeCivilite, parseOptionalDate } from "@/lib/labels";
 import type { ContactSort } from "@/lib/contacts";
+import { UserError, resolveUserRef } from "@/lib/users";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  let ownerId: string | null | undefined;
+  try {
+    ownerId = await resolveUserRef(searchParams.get("owner") ?? undefined, (await getSessionUser())?.id ?? null);
+  } catch (error) {
+    if (error instanceof UserError) return NextResponse.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
   const sortsRaw = searchParams.get("sorts");
   let sorts: ContactSort[] = [];
   if (sortsRaw) {
@@ -26,6 +34,7 @@ export async function GET(request: Request) {
       telephone: searchParams.get("telephone") ?? undefined,
       poste: searchParams.get("poste") ?? undefined,
       civilite: searchParams.get("civilite") ?? undefined,
+      ownerId,
     },
     {
       sorts,
@@ -57,9 +66,17 @@ export async function POST(request: Request) {
   if (civilite === undefined) {
     return NextResponse.json({ error: "Civilité invalide (Monsieur ou Madame)" }, { status: 400 });
   }
+  let ownerId: string | null | undefined;
+  try {
+    ownerId = await resolveUserRef(body.ownerId, user?.id ?? null);
+  } catch (error) {
+    if (error instanceof UserError) return NextResponse.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
 
   const contact = await createContact(
     {
+      ownerId: ownerId === undefined ? (user?.id ?? null) : ownerId,
       civilite,
       prenom,
       nom,

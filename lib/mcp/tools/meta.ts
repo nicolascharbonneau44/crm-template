@@ -18,6 +18,7 @@ import {
   PERSON_STATE_LABELS,
 } from "@/lib/labels";
 import { getCrmStats } from "@/lib/stats";
+import { listUsers, userDisplayName } from "@/lib/users";
 import { ToolError, optionalEnum, requireString, type McpTool } from "@/lib/mcp/types";
 
 export const CRM_RULES = [
@@ -26,6 +27,8 @@ export const CRM_RULES = [
   "Changer l'état (state) d'un contact recalcule sa catégorie (ex. propale → prospect). Changer seulement la catégorie remet l'état par défaut de cette catégorie si l'état actuel n'y correspond pas. Chaque changement est historisé.",
   "La « prochaine action » d'un contact est recalculée automatiquement à partir de ses actions non terminées.",
   "Supprimer une entreprise détache ses contacts sans les supprimer. Supprimer un contact supprime ses actions.",
+  "Plusieurs utilisateurs (list_users) : chaque contact a un responsable (owner) et chaque action / relance un utilisateur assigné (assignee). « Mes relances » = list_followups pour l'utilisateur connecté ; ne montrez pas les relances des autres sauf demande explicite.",
+  "Une nouvelle action est assignée par défaut au responsable du contact, sinon à l'utilisateur connecté ; un nouveau contact a pour responsable l'utilisateur connecté.",
   "Avant de créer, cherchez s'il existe déjà (search_contacts / search_companies) pour éviter les doublons.",
   "Dates au format ISO 8601. Colonnes personnalisées : customFields { cle: valeur }.",
 ];
@@ -40,8 +43,9 @@ export const metaTools: McpTool[] = [
     description:
       "Décrit le CRM : règles de liaison, catégories et états des contacts (avec la catégorie déduite de chaque état), canaux et statuts d'action, colonnes personnalisées de chaque entité. À appeler en premier pour connaître les valeurs valides.",
     inputSchema: { type: "object", properties: {} },
-    async handler() {
+    async handler(_args, ctx) {
       const [contact, company, action] = await Promise.all(ENTITY_TYPES.map((t) => listCustomColumns(t)));
+      const users = await listUsers();
       const columns = (list: typeof contact) => list.map(({ key, label, type }) => ({ key, label, type }));
       return {
         regles: CRM_RULES,
@@ -58,6 +62,7 @@ export const metaTools: McpTool[] = [
         })),
         canauxAction: ACTION_CHANNELS.map((c) => ({ value: c, label: ACTION_CHANNEL_LABELS[c] })),
         statutsAction: ACTION_STATUTS.map((s) => ({ value: s, label: ACTION_STATUT_LABELS[s] })),
+        utilisateurs: users.map((u) => ({ id: u.id, nom: userDisplayName(u), email: u.email, isMe: u.id === ctx.userId })),
         colonnesPersonnalisees: {
           contact: columns(contact),
           company: columns(company),

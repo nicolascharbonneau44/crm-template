@@ -1,4 +1,5 @@
 import { parseCustomFields, validateCustomFields, type CustomEntityType } from "@/lib/custom-columns";
+import { resolveUserRef } from "@/lib/users";
 
 export type ToolArgs = Record<string, unknown>;
 
@@ -129,4 +130,19 @@ export function normalizeName(value: string) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+}
+
+export const userRefSchema = {
+  type: ["string", "null"],
+  description:
+    "Utilisateur : « me » (l'utilisateur connecté), un nom (ex. « Virginie »), un email ou un id — voir list_users. null = non attribué.",
+};
+
+/** Paramètre utilisateur → id (undefined si absent, null si « non attribué »). */
+export async function userRefArg(args: ToolArgs, key: string, ctx: ToolContext) {
+  try {
+    return await resolveUserRef(args[key], ctx.userId);
+  } catch (error) {
+    throw new ToolError(error instanceof Error ? error.message : "Utilisateur invalide.");
+  }
 }
