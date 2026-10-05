@@ -256,15 +256,19 @@ model PasswordResetToken {
   @@index([userId])
 }
 
-// Webhooks entrants (ex. MeetMagnet) : URL secrète + réglages, et journal des réceptions.
-model InboundWebhook {
+// Webhooks entrants (ex. MeetMagnet) : une URL secrète par point d'entrée, avec ses réglages et sa correspondance de champs.
+model WebhookEndpoint {
   id              String   @id @default(cuid())
-  source          String   @unique
+  name            String
+  provider        String   @default("meetmagnet")
   token           String   @unique
+  sourceLabel     String   @default("MeetMagnet")
   defaultCategory String   @default("lead")
   defaultState    String   @default("new_lead")
-  createTask      Boolean  @default(true)
   defaultOwnerId  String?
+  createTask      Boolean  @default(true)
+  /// JSON [{ from, to }] ; null = correspondance automatique par défaut
+  mapping         String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -272,6 +276,7 @@ model InboundWebhook {
 model WebhookDelivery {
   id         String   @id @default(cuid())
   source     String
+  endpointId String?
   event      String
   externalId String?
   status     String

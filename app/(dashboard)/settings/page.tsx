@@ -4,12 +4,14 @@ import { listCustomColumns } from "@/lib/custom-columns";
 import { formatDateTime } from "@/lib/labels";
 import { MCP_TOOLS } from "@/lib/mcp/registry";
 import { listConnections, mcpResourceUrl, publicBaseUrl } from "@/lib/oauth";
-import { getMeetMagnetWebhook, listMeetMagnetDeliveries, webhookUrl } from "@/lib/webhooks/meetmagnet";
+import { ensureDefaultEndpoint, listDeliveries, listEndpoints, webhookUrl } from "@/lib/webhooks/meetmagnet";
+import { resolveMapping } from "@/lib/webhooks/meetmagnet-fields";
 import type { PersonCategory, PersonState } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { isMailConfigured, mailSender } from "@/lib/mailer";
 import { ImportWizard } from "./import-wizard";
-import { ChangePasswordForm, ClaudeConnect, MeetMagnetSettings, RevokeButton, UsersManager } from "./settings-client";
+import { ChangePasswordForm, ClaudeConnect, RevokeButton, UsersManager } from "./settings-client";
+import { WebhookEndpoints } from "./webhook-endpoints";
 import { listUsers, userDisplayName } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -72,26 +74,43 @@ const DELIVERY_BADGES: Record<string, { label: string; badge: string }> = {
 };
 
 async function IntegrationsSettings() {
-  const [webhook, deliveries, users] = await Promise.all([getMeetMagnetWebhook(), listMeetMagnetDeliveries(), listUsers()]);
-  const url = webhookUrl(publicBaseUrl(await headers()), webhook.token);
+  await ensureDefaultEndpoint();
+  const [endpoints, deliveries, users, contactColumns, companyColumns] = await Promise.all([
+    listEndpoints(),
+    listDeliveries(),
+    listUsers(),
+    listCustomColumns("contact"),
+    listCustomColumns("company"),
+  ]);
+  const base = publicBaseUrl(await headers());
+  const pick = (list: typeof contactColumns) => list.map(({ key, label }) => ({ key, label }));
   return (
     <>
-      <section className="settings-section">
-        <h2>MeetMagnet — réponses des prospects</h2>
+      <section className="settings-section wide">
+        <h2>MeetMagnet — webhooks entrants</h2>
         <p>
-          Chaque réponse d’un prospect dans MeetMagnet crée ou complète le contact (source « MeetMagnet »), le rattache
-          à son entreprise et ajoute une action « Répondre » avec le message et la conversation.
+          Chaque webhook a sa propre URL à coller dans MeetMagnet (événement « À la réponse »). À chaque réponse d’un
+          prospect, le contact et son entreprise sont créés ou complétés selon la correspondance de champs ci-dessous, et
+          une action « Répondre » est ajoutée avec le message et la conversation.
         </p>
-        <MeetMagnetSettings
-          url={url}
-          defaultCategory={webhook.defaultCategory as PersonCategory}
-          defaultState={webhook.defaultState as PersonState}
-          createTask={webhook.createTask}
-          defaultOwnerId={webhook.defaultOwnerId}
+        <WebhookEndpoints
+          endpoints={endpoints.map((e) => ({
+            id: e.id,
+            name: e.name,
+            url: webhookUrl(base, e.token),
+            sourceLabel: e.sourceLabel,
+            defaultCategory: e.defaultCategory as PersonCategory,
+            defaultState: e.defaultState as PersonState,
+            defaultOwnerId: e.defaultOwnerId,
+            createTask: e.createTask,
+            mapping: resolveMapping(e.mapping),
+            customized: e.mapping !== null,
+          }))}
           users={users.map((u) => ({ id: u.id, label: userDisplayName(u) }))}
+          customColumns={{ contact: pick(contactColumns), company: pick(companyColumns) }}
         />
       </section>
-      <section className="settings-section">
+      <section className="settings-section wide">
         <h2>Derniers webhooks reçus</h2>
         {deliveries.length === 0 ? (
           <p className="muted">Rien reçu pour le moment. Utilisez « Tester l’envoi » dans MeetMagnet pour vérifier.</p>
@@ -101,6 +120,7 @@ async function IntegrationsSettings() {
               <thead>
                 <tr>
                   <th>Reçu le</th>
+                  <th>Webhook</th>
                   <th>Résultat</th>
                   <th>Détail</th>
                 </tr>
@@ -109,6 +129,7 @@ async function IntegrationsSettings() {
                 {deliveries.map((d) => (
                   <tr key={d.id}>
                     <td className="muted">{formatDateTime(d.receivedAt)}</td>
+                    <td className="muted">{d.endpointName}</td>
                     <td>
                       <span className={`badge ${DELIVERY_BADGES[d.status]?.badge ?? "badge-gray"}`}>
                         {DELIVERY_BADGES[d.status]?.label ?? d.status}

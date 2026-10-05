@@ -1211,3 +1211,44 @@ tr.row-link:hover {
 .inline-row .input {
   flex: 1 1 200px;
 }
+
+.endpoint-list {
+  display: grid;
+  gap: 14px;
+}
+
+.endpoint-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.endpoint-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.endpoint-subtitle {
+  margin: 20px 0 4px;
+  font-size: 14px;
+}
+
+.mapping-table tr.mapping-group td {
+  background: var(--hover);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.btn.danger-text {
+  color: var(--red-text, #b42318);
+}
