@@ -6,6 +6,7 @@ import {
   ACTION_CHANNELS,
   ACTION_CHANNEL_LABELS,
   ACTION_STATUTS,
+  ACTION_STATUT_COLORS,
   ACTION_STATUT_LABELS,
   PERSON_CATEGORIES,
   PERSON_CATEGORY_LABELS,
@@ -31,6 +32,8 @@ import {
   type CustomColumnRecord,
 } from "@/lib/custom-columns";
 import { CustomColumnModal } from "@/app/components/custom-column-modal";
+import { SidePeek } from "@/app/components/side-peek";
+import { DoneToggle, TintedSelect } from "@/app/components/crm-ui";
 import { UserFilterOptions, userLabel, useUsers, type CrmUser } from "@/app/components/use-users";
 
 type ActionRow = {
@@ -101,6 +104,7 @@ export function ActionsWorkspace() {
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [editingColumn, setEditingColumn] = useState<CustomColumnRecord | null>(null);
   const [bulkAssignee, setBulkAssignee] = useState("");
+  const [openAction, setOpenAction] = useState<ActionRow | null>(null);
   const { users, currentUserId } = useUsers();
 
   const filterValue = (field: string) => layout.filterRows.find((r) => r.field === field)?.value ?? "";
@@ -198,6 +202,10 @@ export function ActionsWorkspace() {
   const pageIds = actions.map((a) => a.id);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
   const totalPages = Math.max(1, Math.ceil(total / layout.pageSize));
+
+  async function toggleDone(action: ActionRow) {
+    await setActionStatut(action.id, action.statut === "termine" ? "a_faire" : "termine");
+  }
 
   async function setActionStatut(id: string, statut: ActionStatut) {
     await fetch(`/api/actions/${id}`, {
@@ -311,7 +319,7 @@ export function ActionsWorkspace() {
       case "channel":
         return ACTION_CHANNEL_LABELS[action.channel];
       case "statut":
-        return <span className="badge badge-gray">{ACTION_STATUT_LABELS[action.statut]}</span>;
+        return <span className={`badge ${ACTION_STATUT_COLORS[action.statut]}`}>{ACTION_STATUT_LABELS[action.statut]}</span>;
       case "datePrevue":
         return <span className="muted">{formatDateTime(action.datePrevue)}</span>;
       case "assignee":
@@ -653,6 +661,7 @@ export function ActionsWorkspace() {
                         }
                       />
                     </th>
+                    <th className="col-done" title="Fait / à faire">Fait</th>
                     {visibleCols.map((col) => (
                       <th
                         key={col.key}
@@ -686,9 +695,7 @@ export function ActionsWorkspace() {
                     <tr
                       className={`row-link ${selectedIds.includes(action.id) ? "selected" : ""}`}
                       key={action.id}
-                      onClick={() => {
-                        window.location.href = `/contacts?contact=${action.contact.id}`;
-                      }}
+                      onClick={() => setOpenAction(action)}
                     >
                       <td className="col-check" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -700,6 +707,9 @@ export function ActionsWorkspace() {
                             )
                           }
                         />
+                      </td>
+                      <td className="col-done">
+                        <DoneToggle done={action.statut === "termine"} onToggle={() => void toggleDone(action)} />
                       </td>
                       {visibleCols.map((col) => (
                         <td key={col.key}>{cellValue(action, col.key)}</td>
@@ -735,11 +745,12 @@ export function ActionsWorkspace() {
                       draggable
                       key={action.id}
                       onDragStart={(e) => e.dataTransfer.setData("text/plain", action.id)}
-                      onClick={() => {
-                        window.location.href = `/contacts?contact=${action.contact.id}`;
-                      }}
+                      onClick={() => setOpenAction(action)}
                     >
-                      <h3>{action.titre}</h3>
+                      <h3 style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <DoneToggle done={action.statut === "termine"} onToggle={() => void toggleDone(action)} />
+                        <span>{action.titre}</span>
+                      </h3>
                       <p className="muted" style={{ margin: 0 }}>
                         {contactDisplayName(action.contact)} · {ACTION_CHANNEL_LABELS[action.channel]}
                         {action.user ? ` · ${userLabel(action.user)}` : ""}
@@ -752,6 +763,17 @@ export function ActionsWorkspace() {
           </div>
         )}
       </div>
+
+      <ActionPeek
+        action={openAction}
+        users={users}
+        currentUserId={currentUserId}
+        onClose={() => setOpenAction(null)}
+        onSaved={async () => {
+          setOpenAction(null);
+          await fetchActions();
+        }}
+      />
 
       {saveViewOpen ? (
         <div className="modal-backdrop" onClick={() => setSaveViewOpen(false)}>
@@ -793,5 +815,145 @@ export function ActionsWorkspace() {
         onSaved={() => void loadCustomColumns()}
       />
     </div>
+  );
+}
+
+/** Valeur ISO → champ datetime-local (heure du navigateur). */
+function toLocalInput(value: string | Date | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function ActionPeek({
+  action,
+  users,
+  currentUserId,
+  onClose,
+  onSaved,
+}: {
+  action: ActionRow | null;
+  users: CrmUser[];
+  currentUserId: string | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!action) return null;
+
+  async function save(form: FormData) {
+    if (!action) return;
+    setSaving(true);
+    setError("");
+    const date = String(form.get("datePrevue") ?? "");
+    const res = await fetch(`/api/actions/${action.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        titre: String(form.get("titre") ?? ""),
+        channel: form.get("channel"),
+        statut: form.get("statut"),
+        datePrevue: date ? new Date(date).toISOString() : null,
+        assigneeId: (form.get("assigneeId") as string) || null,
+        contenu: String(form.get("contenu") ?? ""),
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      setError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Enregistrement impossible");
+      return;
+    }
+    await onSaved();
+  }
+
+  async function remove() {
+    if (!action || !confirm(`Supprimer l’action « ${action.titre} » ?`)) return;
+    await fetch(`/api/actions/${action.id}`, { method: "DELETE" });
+    await onSaved();
+  }
+
+  return (
+    <SidePeek
+      open
+      title={action.titre}
+      onClose={onClose}
+      actions={
+        <button className="btn danger small" type="button" onClick={() => void remove()}>
+          Supprimer
+        </button>
+      }
+    >
+      <p className="muted" style={{ marginTop: 0 }}>
+        Contact :{" "}
+        <a href={`/contacts?contact=${action.contact.id}`}>
+          {contactDisplayName(action.contact)}
+          {action.contact.company ? ` — ${action.contact.company.nom}` : ""} →
+        </a>
+      </p>
+      <form
+        key={action.id}
+        className="form-grid"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save(new FormData(e.currentTarget));
+        }}
+      >
+        <label>
+          Titre
+          <input className="input" name="titre" required defaultValue={action.titre} />
+        </label>
+        <div className="form-row">
+          <label>
+            Statut
+            <TintedSelect
+              name="statut"
+              defaultValue={action.statut}
+              options={ACTION_STATUTS.map((st) => ({ value: st, label: ACTION_STATUT_LABELS[st] }))}
+              colorOf={(v) => ACTION_STATUT_COLORS[v as ActionStatut]}
+            />
+          </label>
+          <label>
+            Canal
+            <select className="select" name="channel" defaultValue={action.channel}>
+              {ACTION_CHANNELS.map((c) => (
+                <option key={c} value={c}>
+                  {ACTION_CHANNEL_LABELS[c]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="form-row">
+          <label>
+            Date prévue
+            <input className="input" name="datePrevue" type="datetime-local" defaultValue={toLocalInput(action.datePrevue)} />
+          </label>
+          <label>
+            Assignée à
+            <select className="select" name="assigneeId" defaultValue={action.user?.id ?? ""}>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {userLabel(u)}
+                  {u.id === currentUserId ? " (moi)" : ""}
+                </option>
+              ))}
+              <option value="">Non attribuée</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Contenu
+          <textarea className="textarea" name="contenu" rows={10} defaultValue={action.contenu} />
+        </label>
+        {error ? <p className="error">{error}</p> : null}
+        <button className="btn" type="submit" disabled={saving}>
+          {saving ? "Enregistrement…" : "Enregistrer"}
+        </button>
+      </form>
+    </SidePeek>
   );
 }

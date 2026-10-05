@@ -5,6 +5,7 @@ import { Fragment, useState } from "react";
 import type { PersonCategory, PersonState } from "@prisma/client";
 import { COMPANY_FIELDS, CONTACT_FIELDS, customTarget, newCustomTarget, parseTarget } from "@/lib/import/fields";
 import {
+  CONTACT_SOURCES,
   PERSON_CATEGORIES,
   PERSON_CATEGORY_DEFAULT_STATES,
   PERSON_CATEGORY_LABELS,
@@ -216,12 +217,17 @@ function EndpointCard({ endpoint, users, customColumns, startOpen }: { endpoint:
             </label>
             <label>
               Source des contacts
-              <input
-                className="input"
-                value={sourceLabel}
-                placeholder="ex. MeetMagnet – Campagne agro"
-                onChange={(e) => setSourceLabel(e.target.value)}
-              />
+              <select className="input" value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)}>
+                <option value="">— Aucune —</option>
+                {CONTACT_SOURCES.map((src) => (
+                  <option key={src} value={src}>
+                    {src}
+                  </option>
+                ))}
+                {sourceLabel && !(CONTACT_SOURCES as readonly string[]).includes(sourceLabel) ? (
+                  <option value={sourceLabel}>{sourceLabel}</option>
+                ) : null}
+              </select>
               <span className="hint">Inscrite dans le champ « Source » de chaque contact reçu.</span>
             </label>
             <label>

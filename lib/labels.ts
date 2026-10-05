@@ -16,8 +16,6 @@ export const PERSON_STATES: PersonState[] = [
   "inscription_newsletter_inscrite",
   "new_lead",
   "lead_en_cours",
-  "free_trial",
-  "onboarding",
   "rdv_a_planifier",
   "rdv_decouverte",
   "rencontre",
@@ -25,7 +23,6 @@ export const PERSON_STATES: PersonState[] = [
   "relance_suite_rdv",
   "propale",
   "done",
-  "kickoff",
   "perdu",
   "concurrent",
   "ok_plus_tard",
@@ -42,10 +39,17 @@ export const PERSON_STATES: PersonState[] = [
   "autres",
 ];
 
+/** États retirés de l'interface : remplacés lors des imports / de la migration. */
+export const RETIRED_STATE_REPLACEMENTS: Partial<Record<PersonState, PersonState>> = {
+  free_trial: "lead_en_cours",
+  onboarding: "lead_en_cours",
+  kickoff: "done",
+};
+
 export const PERSON_CATEGORY_DEFAULT_STATES: Record<PersonCategory, PersonState> = {
   lead: "new_lead",
   prospect: "rdv_decouverte",
-  client: "kickoff",
+  client: "done",
   ex_clients: "perdu",
   autres: "autres",
 };
@@ -79,12 +83,10 @@ export const PERSON_CATEGORY_STATE_KEYS: Record<PersonCategory, PersonState[]> =
     "lead_en_cours",
     "a_rappeler",
     "relance_3mois",
-    "free_trial",
-    "onboarding",
     "rdv_a_planifier",
   ],
   prospect: ["rdv_decouverte", "rencontre", "rdv2_planifie", "relance_suite_rdv", "propale"],
-  client: ["kickoff", "done"],
+  client: ["done"],
   ex_clients: ["perdu"],
   autres: [
     "autres",
@@ -212,6 +214,15 @@ export const ACTION_STATUT_LABELS: Record<ActionStatut, string> = {
   en_cours: "En cours",
   termine: "Terminé",
 };
+
+export const ACTION_STATUT_COLORS: Record<ActionStatut, string> = {
+  a_faire: "badge-orange",
+  en_cours: "badge-blue",
+  termine: "badge-green",
+};
+
+/** Sources proposées dans les listes (une valeur libre existante reste affichée). */
+export const CONTACT_SOURCES = ["LinkedIn", "MeetMagnet", "Bouche à oreille", "Site web", "Salon"] as const;
 
 export const CIVILITES = ["Monsieur", "Madame"] as const;
 export type Civilite = (typeof CIVILITES)[number];

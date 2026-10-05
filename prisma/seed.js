@@ -65,7 +65,7 @@ async function main() {
       telephone: "06 12 34 56 01",
       poste: "Directrice commerciale",
       category: "client",
-      state: "kickoff",
+      state: "done",
       companyId: dupont.id,
       source: "Site web",
     },
@@ -122,7 +122,7 @@ async function main() {
 
   await prisma.contactStateHistory.createMany({
     data: [
-      { contactId: marie.id, newState: "kickoff", newCategory: "client" },
+      { contactId: marie.id, newState: "done", newCategory: "client" },
       { contactId: lucas.id, newState: "rdv_decouverte", newCategory: "prospect" },
       { contactId: sofia.id, newState: "lead_en_cours", newCategory: "lead" },
     ],

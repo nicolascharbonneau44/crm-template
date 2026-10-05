@@ -3,18 +3,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ActionChannel, ActionStatut, PersonCategory, PersonState } from "@prisma/client";
+import Link from "next/link";
 import { SidePeek } from "@/app/components/side-peek";
+import { DoneToggle, TintedSelect } from "@/app/components/crm-ui";
 import {
   ACTION_CHANNELS,
   ACTION_CHANNEL_LABELS,
+  ACTION_STATUT_COLORS,
   ACTION_STATUT_LABELS,
   CIVILITES,
+  CONTACT_SOURCES,
   PERSON_CATEGORIES,
   PERSON_CATEGORY_COLORS,
   PERSON_CATEGORY_LABELS,
   PERSON_CATEGORY_STATE_KEYS,
   PERSON_STATE_COLORS,
   PERSON_STATE_LABELS,
+  PERSON_STATES,
   contactDisplayName,
   formatDate,
   formatDateTime,
@@ -204,6 +209,8 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkState, setBulkState] = useState("");
   const [bulkOwner, setBulkOwner] = useState("");
+  const [showActionForm, setShowActionForm] = useState(false);
+  const [expandedActionId, setExpandedActionId] = useState<string | null>(null);
   const { users, currentUserId } = useUsers();
   const [dragCol, setDragCol] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
@@ -324,14 +331,14 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  async function openContact(id: string) {
+  async function openContact(id: string, keepTab = false) {
     const res = await fetch(`/api/contacts/${id}`);
     if (!res.ok) return;
     const data = await res.json();
     setSelected(data);
     setCustomFieldDraft(getCustomFields(data));
     setCreating(false);
-    setTab("info");
+    if (!keepTab) setTab("info");
     const params = new URLSearchParams(searchParams.toString());
     params.set("contact", id);
     router.replace(`/contacts?${params.toString()}`);
@@ -438,7 +445,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
         assigneeId: (form.get("assigneeId") as string) || null,
       }),
     });
-    await openContact(selected.id);
+    await openContact(selected.id, true);
     await fetchContacts();
   }
 
@@ -448,7 +455,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ statut }),
     });
-    if (selected?.id) await openContact(selected.id);
+    if (selected?.id) await openContact(selected.id, true);
   }
 
   async function bulkDelete() {
@@ -846,7 +853,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   }}
                 >
                   <option value="">—</option>
-                  {(Object.keys(PERSON_STATE_LABELS) as PersonState[]).map((s) => (
+                  {PERSON_STATES.map((s) => (
                     <option key={s} value={s}>
                       {PERSON_STATE_LABELS[s]}
                     </option>
@@ -866,6 +873,26 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   }}
                 >
                   <UserFilterOptions users={users} currentUserId={currentUserId} />
+                </select>
+              ) : row.field === "source" ? (
+                <select
+                  className="select"
+                  style={{ width: 180 }}
+                  value={row.value}
+                  onChange={(e) => {
+                    setLayout((prev) => ({
+                      ...prev,
+                      filterRows: prev.filterRows.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)),
+                    }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">—</option>
+                  {CONTACT_SOURCES.map((src) => (
+                    <option key={src} value={src}>
+                      {src}
+                    </option>
+                  ))}
                 </select>
               ) : row.field === "civilite" ? (
                 <select
@@ -1162,7 +1189,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
               État
               <select className="select" value={bulkState} onChange={(e) => setBulkState(e.target.value)}>
                 <option value="">Ne pas changer</option>
-                {(Object.keys(PERSON_STATE_LABELS) as PersonState[]).map((s) => (
+                {PERSON_STATES.map((s) => (
                   <option key={s} value={s}>
                     {PERSON_STATE_LABELS[s]}
                   </option>
@@ -1310,23 +1337,23 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                 <div className="form-row">
                   <label>
                     Catégorie
-                    <select className="select" name="category" defaultValue={selected.category}>
-                      {PERSON_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {PERSON_CATEGORY_LABELS[c]}
-                        </option>
-                      ))}
-                    </select>
+                    <TintedSelect
+                      key={`cat-${selected.id}-${selected.category}`}
+                      name="category"
+                      defaultValue={selected.category}
+                      options={PERSON_CATEGORIES.map((c) => ({ value: c, label: PERSON_CATEGORY_LABELS[c] }))}
+                      colorOf={(v) => PERSON_CATEGORY_COLORS[v as PersonCategory]}
+                    />
                   </label>
                   <label>
                     État
-                    <select className="select" name="state" defaultValue={selected.state}>
-                      {(Object.keys(PERSON_STATE_LABELS) as PersonState[]).map((s) => (
-                        <option key={s} value={s}>
-                          {PERSON_STATE_LABELS[s]}
-                        </option>
-                      ))}
-                    </select>
+                    <TintedSelect
+                      key={`state-${selected.id}-${selected.state}`}
+                      name="state"
+                      defaultValue={selected.state}
+                      options={PERSON_STATES.map((st) => ({ value: st, label: PERSON_STATE_LABELS[st] }))}
+                      colorOf={(v) => PERSON_STATE_COLORS[v as PersonState]}
+                    />
                   </label>
                 </div>
                 <label>
@@ -1341,7 +1368,14 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   </select>
                 </label>
                 <label>
-                  Entreprise
+                  <span>
+                    Entreprise
+                    {selected.companyId ? (
+                      <Link className="peek-link" href={`/companies?company=${selected.companyId}`}>
+                        Ouvrir la fiche entreprise →
+                      </Link>
+                    ) : null}
+                  </span>
                   <select className="select" name="companyId" defaultValue={selected.companyId ?? ""}>
                     <option value="">Aucune</option>
                     {companies.map((c) => (
@@ -1362,7 +1396,17 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                 <div className="form-row">
                   <label>
                     Source
-                    <input className="input" name="source" defaultValue={selected.source ?? ""} />
+                    <select className="select" name="source" defaultValue={selected.source ?? ""}>
+                      <option value="">—</option>
+                      {CONTACT_SOURCES.map((src) => (
+                        <option key={src} value={src}>
+                          {src}
+                        </option>
+                      ))}
+                      {selected.source && !(CONTACT_SOURCES as readonly string[]).includes(selected.source) ? (
+                        <option value={selected.source}>{selected.source}</option>
+                      ) : null}
+                    </select>
                   </label>
                   <label>
                     Pays
@@ -1388,94 +1432,105 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
               </form>
             ) : (
               <div className="form-grid">
-                <form
-                  className="form-grid"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void createAction(new FormData(e.currentTarget));
-                    e.currentTarget.reset();
-                  }}
-                >
-                  <div className="form-row">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {(selected.actions ?? []).length} action{(selected.actions ?? []).length > 1 ? "s" : ""} ·{" "}
+                    {(selected.actions ?? []).filter((a) => a.statut !== "termine").length} à faire
+                  </span>
+                  <button className="btn secondary small" type="button" onClick={() => setShowActionForm((v) => !v)}>
+                    {showActionForm ? "Annuler" : "+ Nouvelle action"}
+                  </button>
+                </div>
+                {showActionForm ? (
+                  <form
+                    className="form-grid"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void createAction(new FormData(e.currentTarget));
+                      e.currentTarget.reset();
+                      setShowActionForm(false);
+                    }}
+                  >
+                    <div className="form-row">
+                      <label>
+                        Canal
+                        <select className="select" name="channel" defaultValue="note">
+                          {ACTION_CHANNELS.map((c) => (
+                            <option key={c} value={c}>
+                              {ACTION_CHANNEL_LABELS[c]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Date prévue
+                        <input className="input" name="datePrevue" type="datetime-local" />
+                      </label>
+                    </div>
                     <label>
-                      Canal
-                      <select className="select" name="channel" defaultValue="note">
-                        {ACTION_CHANNELS.map((c) => (
-                          <option key={c} value={c}>
-                            {ACTION_CHANNEL_LABELS[c]}
+                      Titre
+                      <input className="input" name="titre" required />
+                    </label>
+                    <label>
+                      Assignée à
+                      <select className="select" name="assigneeId" defaultValue={selected.ownerId ?? currentUserId ?? ""}>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {userLabel(u)}
+                            {u.id === currentUserId ? " (moi)" : ""}
                           </option>
                         ))}
+                        <option value="">Non attribuée</option>
                       </select>
                     </label>
                     <label>
-                      Date prévue
-                      <input className="input" name="datePrevue" type="datetime-local" />
+                      Contenu
+                      <textarea className="textarea" name="contenu" />
                     </label>
-                  </div>
-                  <label>
-                    Titre
-                    <input className="input" name="titre" required />
-                  </label>
-                  <label>
-                    Assignée à
-                    <select className="select" name="assigneeId" defaultValue={selected.ownerId ?? currentUserId ?? ""}>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {userLabel(u)}
-                          {u.id === currentUserId ? " (moi)" : ""}
-                        </option>
-                      ))}
-                      <option value="">Non attribuée</option>
-                    </select>
-                  </label>
-                  <label>
-                    Contenu
-                    <textarea className="textarea" name="contenu" />
-                  </label>
-                  <button className="btn" type="submit">
-                    Ajouter l’action
-                  </button>
-                </form>
-                <div className="actions-list">
-                  {(selected.actions ?? []).length === 0 ? (
-                    <p className="muted">Aucune action.</p>
-                  ) : (
-                    (selected.actions ?? []).map((action) => (
-                      <article className="action-item" key={action.id}>
-                        <header>
-                          <div>
-                            <strong>{action.titre}</strong>
-                            <p className="muted" style={{ margin: "4px 0 0" }}>
-                              {ACTION_CHANNEL_LABELS[action.channel]} · {formatDateTime(action.datePrevue)}
-                              {action.user ? ` · ${userLabel(action.user)}` : ""}
-                            </p>
+                    <button className="btn" type="submit">
+                      Ajouter l’action
+                    </button>
+                  </form>
+                ) : null}
+                {(selected.actions ?? []).length === 0 ? (
+                  <p className="muted">Aucune action.</p>
+                ) : (
+                  <div className="action-rows">
+                    {[...(selected.actions ?? [])]
+                      .sort((a, b) => Number(a.statut === "termine") - Number(b.statut === "termine"))
+                      .map((action) => {
+                        const done = action.statut === "termine";
+                        return (
+                          <div className={`action-row ${done ? "is-done" : ""}`} key={action.id}>
+                            <DoneToggle
+                              done={done}
+                              onToggle={() => void setActionStatut(action.id, done ? "a_faire" : "termine")}
+                            />
+                            <div>
+                              <div className="action-row-title">{action.titre}</div>
+                              <div className="action-row-meta">
+                                {ACTION_CHANNEL_LABELS[action.channel]}
+                                {action.datePrevue ? ` · ${formatDateTime(action.datePrevue)}` : ""}
+                                {action.user ? ` · ${userLabel(action.user)}` : ""}
+                              </div>
+                              {action.contenu ? (
+                                <div
+                                  className={`action-row-content ${expandedActionId === action.id ? "expanded" : ""}`}
+                                  title={expandedActionId === action.id ? "Cliquer pour réduire" : "Cliquer pour tout lire"}
+                                  onClick={() => setExpandedActionId((id) => (id === action.id ? null : action.id))}
+                                >
+                                  {action.contenu}
+                                </div>
+                              ) : null}
+                            </div>
+                            <span className={`badge ${ACTION_STATUT_COLORS[action.statut]}`}>
+                              {ACTION_STATUT_LABELS[action.statut]}
+                            </span>
                           </div>
-                          <span className="badge badge-gray">{ACTION_STATUT_LABELS[action.statut]}</span>
-                        </header>
-                        {action.contenu ? <p style={{ marginTop: 0 }}>{action.contenu}</p> : null}
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {action.statut !== "termine" ? (
-                            <button
-                              className="btn secondary small"
-                              type="button"
-                              onClick={() => void setActionStatut(action.id, "termine")}
-                            >
-                              Terminer
-                            </button>
-                          ) : (
-                            <button
-                              className="btn secondary small"
-                              type="button"
-                              onClick={() => void setActionStatut(action.id, "a_faire")}
-                            >
-                              Réouvrir
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))
-                  )}
-                </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             )}
           </>

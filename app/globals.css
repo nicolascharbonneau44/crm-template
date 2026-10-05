@@ -1252,3 +1252,157 @@ tr.row-link:hover {
 .btn.danger-text {
   color: var(--red-text, #b42318);
 }
+
+.side-peek-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.side-peek-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background 120ms;
+}
+
+.side-peek-resize:hover::after,
+.side-peek.resizing .side-peek-resize::after {
+  background: var(--blue-text, #1e4b6d);
+}
+
+.side-peek.resizing {
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .side-peek-resize {
+    display: none;
+  }
+}
+
+/* Menus déroulants teintés selon la valeur (catégorie, état, statut) */
+.select.badge-yellow,
+.select.badge-orange,
+.select.badge-blue,
+.select.badge-violet,
+.select.badge-green,
+.select.badge-red,
+.select.badge-gray {
+  font-weight: 500;
+  border-color: transparent;
+}
+
+.select.badge-yellow { background-color: var(--yellow); color: var(--yellow-text); }
+.select.badge-orange { background-color: var(--orange); color: var(--orange-text); }
+.select.badge-blue { background-color: var(--blue); color: var(--blue-text); }
+.select.badge-violet { background-color: var(--violet); color: var(--violet-text); }
+.select.badge-green { background-color: var(--green); color: var(--green-text); }
+.select.badge-red { background-color: var(--red, #fde2e1); color: var(--red-text, #b42318); }
+.select.badge-gray { background-color: var(--accent-soft); color: var(--text); }
+
+/* Case « fait / à faire » des actions */
+.done-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--orange-text);
+  background: var(--orange);
+  color: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  flex: 0 0 auto;
+  transition: background 120ms, border-color 120ms;
+}
+
+.done-toggle:hover {
+  color: var(--orange-text);
+}
+
+.done-toggle.done {
+  border-color: var(--green-text);
+  background: var(--green-text);
+  color: #fff;
+}
+
+.col-done {
+  width: 36px;
+  text-align: center;
+}
+
+/* Liste compacte des actions dans la fiche contact */
+.action-rows {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.action-row:last-child {
+  border-bottom: none;
+}
+
+.action-row.is-done .action-row-title {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.action-row-title {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.action-row-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.action-row-content {
+  font-size: 13px;
+  margin-top: 4px;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.action-row-content.expanded {
+  -webkit-line-clamp: unset;
+  display: block;
+}
+
+.peek-link {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--blue-text, #1e4b6d);
+  margin-left: 6px;
+}
+
+.peek-link:hover {
+  text-decoration: underline;
+}

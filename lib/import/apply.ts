@@ -8,6 +8,7 @@ import {
   PERSON_CATEGORY_LABELS,
   PERSON_STATES,
   PERSON_STATE_LABELS,
+  RETIRED_STATE_REPLACEMENTS,
   isPersonCategory,
   isPersonState,
   normalizeCivilite,
@@ -78,6 +79,10 @@ const CATEGORY_LOOKUP = new Map<string, PersonCategory>([
 const STATE_LOOKUP = new Map<string, PersonState>([
   ...PERSON_STATES.map((s) => [normalizeHeader(s), s] as const),
   ...PERSON_STATES.map((s) => [normalizeHeader(PERSON_STATE_LABELS[s]), s] as const),
+  ...Object.entries(RETIRED_STATE_REPLACEMENTS).flatMap(([old, next]) => [
+    [normalizeHeader(old), next as PersonState] as const,
+    [normalizeHeader(PERSON_STATE_LABELS[old as PersonState]), next as PersonState] as const,
+  ]),
 ]);
 
 const isBlank = (v: unknown) => v === null || v === undefined || (typeof v === "string" && v.trim() === "");

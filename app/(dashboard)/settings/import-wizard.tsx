@@ -26,6 +26,7 @@ import {
   type ParsedTable,
 } from "@/lib/import/parse-client";
 import {
+  CONTACT_SOURCES,
   PERSON_CATEGORIES,
   PERSON_CATEGORY_DEFAULT_STATES,
   PERSON_CATEGORY_LABELS,
@@ -148,7 +149,7 @@ export function ImportWizard({
     setAutoTargets(auto.targets);
     setAutoFlags(unique.map((t, i) => Boolean(t) && t === auto.targets[i]));
     setMode(auto.suggestedMode);
-    setSource(next.fileName.replace(/\.[^.]+$/, ""));
+    setSource("");
     setSummary(null);
     setError("");
   }
@@ -638,8 +639,15 @@ export function ImportWizard({
         ) : null}
         {mode === "contacts" && !has("contact.source") ? (
           <label>
-            Source
-            <input className="input" value={source} onChange={(e) => setSource(e.target.value)} />
+            Source des nouveaux contacts
+            <select className="input" value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="">— Aucune —</option>
+              {CONTACT_SOURCES.map((src) => (
+                <option key={src} value={src}>
+                  {src}
+                </option>
+              ))}
+            </select>
           </label>
         ) : null}
       </div>
