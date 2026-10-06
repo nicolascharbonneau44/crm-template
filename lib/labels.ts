@@ -222,7 +222,7 @@ export const ACTION_STATUT_COLORS: Record<ActionStatut, string> = {
 };
 
 /** Sources proposées dans les listes (une valeur libre existante reste affichée). */
-export const CONTACT_SOURCES = ["LinkedIn", "MeetMagnet", "Bouche à oreille", "Site web", "Salon"] as const;
+export const CONTACT_SOURCES = ["LinkedIn", "MeetMagnet", "Bouche à oreille", "Site web", "Salon", "Sortlist"] as const;
 
 export const CIVILITES = ["Monsieur", "Madame"] as const;
 export type Civilite = (typeof CIVILITES)[number];
