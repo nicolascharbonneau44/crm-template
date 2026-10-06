@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { deleteContact, getContact, updateContact } from "@/lib/contacts";
-import { isPersonCategory, isPersonState, normalizeCivilite, parseOptionalDate } from "@/lib/labels";
+import { isPersonCategory, isPersonState, normalizeCivilite, parseOptionalDate, parseYesNo } from "@/lib/labels";
 import { UserError, resolveUserRef } from "@/lib/users";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -40,6 +40,7 @@ export async function PATCH(request: Request, context: Ctx) {
     id,
     {
       ownerId,
+      newsletter: body.newsletter === undefined ? undefined : parseYesNo(body.newsletter),
       civilite,
       prenom: body.prenom,
       nom: body.nom,

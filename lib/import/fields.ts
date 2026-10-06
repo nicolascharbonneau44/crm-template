@@ -1,5 +1,5 @@
 // Partagé client/serveur : pas d'import Prisma ici.
-import { parseEffectif } from "@/lib/labels";
+import { parseEffectif, parseYesNo } from "@/lib/labels";
 
 export type ImportEntity = "contact" | "company";
 export type ImportMode = "contacts" | "companies";
@@ -13,6 +13,7 @@ export type ImportField = {
 
 export const CONTACT_FIELDS: ImportField[] = [
   { target: "contact.civilite", entity: "contact", label: "Civilité" },
+  { target: "contact.newsletter", entity: "contact", label: "Newsletter (NL)" },
   { target: "contact.prenom", entity: "contact", label: "Prénom" },
   { target: "contact.nom", entity: "contact", label: "Nom" },
   { target: "contact.fullName", entity: "contact", label: "Nom complet (prénom + nom)" },
@@ -97,6 +98,7 @@ const RULES: { target: string; test: RegExp }[] = [
   { target: "company.description", test: /\bdescription\b.*\b(site|entreprise|societe|company)\b/ },
   { target: "contact.source", test: /\b(source|origine|liste|list|campagne|campaign)\b/ },
   { target: "contact.civilite", test: /^(civilite|salutation|titre de civilite|genre|gender|prefix|prefixe)$/ },
+  { target: "contact.newsletter", test: /^(nl|newsletter|inscrit newsletter|inscription newsletter|abonne newsletter|opt ?in|optin newsletter)$/ },
   { target: "contact.prenom", test: /^(prenom|first ?name|firstname|given name|prenom du contact)$/ },
   { target: "contact.fullName", test: /^(nom complet|full ?name|nom et prenom|prenom et nom|prenom nom|nom prenom|contact|name|contact name)$/ },
   { target: "contact.nom", test: /^(nom|last ?name|lastname|surname|nom de famille|family name|nom du contact)$/ },
@@ -135,6 +137,7 @@ const VALUE_CHECKS: Record<string, (v: string) => boolean> = {
   "company.siret": isSiret,
   "company.codeNaf": (v) => /^\d{2}\.?\d{2}[a-z]$/i.test(v.trim()),
   "company.effectif": (v) => typeof parseEffectif(v) === "number",
+  "contact.newsletter": (v) => parseYesNo(v) !== undefined,
 };
 
 function valuesMatch(target: string, samples: string[]) {

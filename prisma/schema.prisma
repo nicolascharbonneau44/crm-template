@@ -103,6 +103,7 @@ model Company {
 model Contact {
   id                    String         @id @default(cuid())
   civilite              String?
+  newsletter            Boolean        @default(false)
   prenom                String         @default("")
   nom                   String         @default("")
   email                 String?

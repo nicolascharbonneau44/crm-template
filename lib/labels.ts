@@ -279,6 +279,22 @@ export function parseEffectif(value: unknown): number | null | undefined {
   return undefined;
 }
 
+/** « oui », « x », « 1 », « true », « inscrit »… → true ; « non », « 0 », « false », vide → false ; sinon undefined. */
+export function parseYesNo(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (value === null || value === undefined) return false;
+  if (typeof value !== "string") return undefined;
+  const v = value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+  if (["", "non", "no", "n", "false", "faux", "0", "-", "desinscrit", "desinscrite"].includes(v)) return false;
+  if (["oui", "yes", "y", "o", "true", "vrai", "1", "x", "✓", "✔", "inscrit", "inscrite", "nl"].includes(v)) return true;
+  return undefined;
+}
+
 export function isPersonCategory(value: unknown): value is PersonCategory {
   return typeof value === "string" && PERSON_CATEGORIES.includes(value as PersonCategory);
 }

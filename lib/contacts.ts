@@ -13,6 +13,7 @@ export type ContactFilters = {
   poste?: string;
   civilite?: string;
   companyId?: string;
+  newsletter?: boolean;
   /** Responsable ; null = contacts non attribués. */
   ownerId?: string | null;
 };
@@ -65,6 +66,7 @@ function buildWhere(filters: ContactFilters = {}): Prisma.ContactWhereInput {
   if (filters.poste?.trim()) and.push({ poste: { contains: filters.poste.trim() } });
   if (filters.companyId) where.companyId = filters.companyId;
   if (filters.civilite?.trim()) where.civilite = filters.civilite.trim();
+  if (filters.newsletter !== undefined) where.newsletter = filters.newsletter;
   if (filters.ownerId !== undefined) where.ownerId = filters.ownerId;
 
   if (and.length) where.AND = and;
@@ -119,6 +121,7 @@ export async function getContact(id: string) {
 
 export type ContactInput = {
   ownerId?: string | null;
+  newsletter?: boolean;
   civilite?: string | null;
   prenom?: string;
   nom?: string;
@@ -157,6 +160,7 @@ export async function createContact(input: ContactInput, changedById?: string) {
     const contact = await tx.contact.create({
       data: {
         civilite: cleanOptional(input.civilite) ?? null,
+        newsletter: input.newsletter ?? false,
         prenom: input.prenom?.trim() ?? "",
         nom: input.nom?.trim() ?? "",
         email: cleanOptional(input.email) ?? null,
@@ -211,6 +215,7 @@ export async function updateContact(id: string, input: ContactInput, changedById
       where: { id },
       data: {
         ...(input.civilite !== undefined ? { civilite: cleanOptional(input.civilite) } : {}),
+        ...(input.newsletter !== undefined ? { newsletter: input.newsletter } : {}),
         ...(input.prenom !== undefined ? { prenom: input.prenom.trim() } : {}),
         ...(input.nom !== undefined ? { nom: input.nom.trim() } : {}),
         ...(input.email !== undefined ? { email: cleanOptional(input.email) } : {}),
@@ -273,7 +278,7 @@ export async function deleteContact(id: string) {
 
 export async function bulkUpdateContacts(
   ids: string[],
-  patch: { category?: PersonCategory; state?: PersonState; ownerId?: string | null },
+  patch: { category?: PersonCategory; state?: PersonState; ownerId?: string | null; newsletter?: boolean },
   changedById?: string,
 ) {
   const results = [];

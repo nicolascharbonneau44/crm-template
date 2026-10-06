@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { bulkDeleteContacts, bulkUpdateContacts } from "@/lib/contacts";
-import { isPersonCategory, isPersonState } from "@/lib/labels";
+import { isPersonCategory, isPersonState, parseYesNo } from "@/lib/labels";
 import { UserError, resolveUserRef } from "@/lib/users";
 
 export async function POST(request: Request) {
@@ -40,7 +40,9 @@ export async function POST(request: Request) {
         throw error;
       }
     }
-    if (!("category" in patch) && !("state" in patch) && !("ownerId" in patch)) {
+    const newsletter = body.newsletter === undefined || body.newsletter === "" ? undefined : parseYesNo(body.newsletter);
+    if (newsletter !== undefined) (patch as { newsletter?: boolean }).newsletter = newsletter;
+    if (!("category" in patch) && !("state" in patch) && !("ownerId" in patch) && !("newsletter" in patch)) {
       return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
     }
     const updated = await bulkUpdateContacts(ids, patch as never, user?.id);

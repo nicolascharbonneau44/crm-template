@@ -28,6 +28,7 @@ const contactFields = {
     enum: [...CIVILITES, null],
     description: "Monsieur ou Madame (null pour effacer)",
   },
+  newsletter: { type: "boolean", description: "Case NL : inscrit(e) à la newsletter" },
   prenom: { type: "string" },
   nom: { type: "string" },
   email: { type: ["string", "null"] },
@@ -74,6 +75,7 @@ export function contactSummary(
   return {
     id: contact.id,
     civilite: contact.civilite,
+    newsletter: contact.newsletter,
     prenom: contact.prenom,
     nom: contact.nom,
     email: contact.email,
@@ -101,6 +103,7 @@ function civiliteArg(args: ToolArgs) {
 async function contactInput(args: ToolArgs): Promise<ContactInput> {
   return {
     civilite: civiliteArg(args),
+    newsletter: optionalBoolean(args, "newsletter"),
     prenom: optionalString(args, "prenom"),
     nom: optionalString(args, "nom"),
     email: nullableString(args, "email"),
@@ -142,6 +145,7 @@ export const contactTools: McpTool[] = [
         companyId: { type: "string", description: "Uniquement les contacts de cette entreprise" },
         owner: { ...userRefSchema, description: `${userRefSchema.description} Filtre sur le responsable (« me » = mes contacts, null = non attribués).` },
         source: { type: "string" },
+        newsletter: { type: "boolean", description: "true = inscrits à la newsletter (NL), false = non inscrits" },
         ...paginationSchema,
       },
     },
@@ -155,6 +159,7 @@ export const contactTools: McpTool[] = [
           state: optionalEnum(args, "state", PERSON_STATES),
           companyId: optionalString(args, "companyId"),
           source: optionalString(args, "source"),
+          newsletter: optionalBoolean(args, "newsletter"),
         },
         { page, pageSize },
       );

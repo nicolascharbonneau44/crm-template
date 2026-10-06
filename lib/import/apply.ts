@@ -13,6 +13,7 @@ import {
   isPersonState,
   normalizeCivilite,
   parseEffectif,
+  parseYesNo,
 } from "@/lib/labels";
 import {
   MAX_ROWS_PER_REQUEST,
@@ -308,6 +309,13 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
       const hasContactData = Object.keys(contact).length > 0 || Object.keys(contactCustom).length > 0;
       if (!hasContactData) continue;
 
+      let newsletter: boolean | undefined;
+      if (contact.newsletter) {
+        newsletter = parseYesNo(contact.newsletter);
+        if (newsletter === undefined) warn(`Valeur newsletter non reconnue « ${contact.newsletter} » (attendu : oui / non) : ignorée.`);
+        delete contact.newsletter;
+      }
+
       if (contact.civilite) {
         const civilite = normalizeCivilite(contact.civilite);
         if (civilite) contact.civilite = civilite;
@@ -349,6 +357,7 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
             state: state ?? (category ? undefined : req.defaults.state),
             companyId,
             ownerId: req.defaults.ownerId ?? null,
+            newsletter: newsletter ?? false,
             customFields: contactCustom,
           },
           userId,
@@ -374,6 +383,10 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
         patch.companyId = companyId;
       }
       if (req.defaults.ownerId && !current.ownerId) patch.ownerId = req.defaults.ownerId;
+      // Case NL : « compléter » ne fait qu'inscrire (non coché = vide), « remplacer » applique la valeur du fichier.
+      if (newsletter !== undefined && newsletter !== current.newsletter && (req.onExisting === "overwrite" || newsletter)) {
+        patch.newsletter = newsletter;
+      }
       const customFields = customPatch(current.customFields, contactCustom, req.onExisting);
       if (customFields) patch.customFields = customFields;
 

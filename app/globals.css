@@ -1406,3 +1406,22 @@ tr.row-link:hover {
 .peek-link:hover {
   text-decoration: underline;
 }
+
+.checkbox-inline {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.checkbox-inline input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green-text);
+}

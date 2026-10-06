@@ -61,6 +61,7 @@ type ActionRow = {
 type ContactRow = {
   id: string;
   civilite: string | null;
+  newsletter: boolean;
   prenom: string;
   nom: string;
   email: string | null;
@@ -98,6 +99,7 @@ const BASE_COLUMN_DEFS: ColumnDef[] = [
   { key: "name", label: "Nom" },
   { key: "company", label: "Entreprise" },
   { key: "owner", label: "Responsable" },
+  { key: "newsletter", label: "NL" },
   { key: "email", label: "E-mail" },
   { key: "telephone", label: "Téléphone" },
   { key: "poste", label: "Poste" },
@@ -112,6 +114,7 @@ const FILTER_FIELDS = [
   { key: "category", label: "Catégorie", type: "enum" as const },
   { key: "state", label: "État", type: "enum" as const },
   { key: "owner", label: "Responsable", type: "enum" as const },
+  { key: "newsletter", label: "Newsletter (NL)", type: "enum" as const },
   { key: "civilite", label: "Civilité", type: "enum" as const },
   { key: "source", label: "Source", type: "text" as const },
   { key: "email", label: "E-mail", type: "text" as const },
@@ -132,7 +135,7 @@ const SORT_FIELDS = [
 ];
 
 const DEFAULT_LAYOUT: ListLayoutState = {
-  visibleColumnKeys: ["name", "company", "owner", "email", "category", "state", "next_action", "updatedAt"],
+  visibleColumnKeys: ["name", "company", "owner", "newsletter", "email", "category", "state", "next_action", "updatedAt"],
   columnOrder: BASE_COLUMN_DEFS.map((c) => c.key),
   viewMode: "list",
   filterRows: [],
@@ -166,6 +169,8 @@ function cellValue(contact: ContactRow, key: string, customCols: CustomColumnRec
       return contactDisplayName(contact);
     case "company":
       return contact.company?.nom ?? "—";
+    case "newsletter":
+      return contact.newsletter ? "✓ NL" : "—";
     case "owner":
       return contact.owner ? userLabel(contact.owner) : "—";
     case "email":
@@ -209,6 +214,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkState, setBulkState] = useState("");
   const [bulkOwner, setBulkOwner] = useState("");
+  const [bulkNewsletter, setBulkNewsletter] = useState("");
   const [showActionForm, setShowActionForm] = useState(false);
   const [expandedActionId, setExpandedActionId] = useState<string | null>(null);
   const { users, currentUserId } = useUsers();
@@ -359,6 +365,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
     setSelected({
       id: "",
       civilite: null,
+      newsletter: false,
       ownerId: currentUserId,
       owner: null,
       prenom: "",
@@ -480,12 +487,14 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
         category: bulkCategory || undefined,
         state: bulkState || undefined,
         ownerId: bulkOwner || undefined,
+        newsletter: bulkNewsletter || undefined,
       }),
     });
     setBulkOpen(false);
     setBulkCategory("");
     setBulkState("");
     setBulkOwner("");
+    setBulkNewsletter("");
     setSelectedIds([]);
     await fetchContacts();
   }
@@ -874,6 +883,23 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                 >
                   <UserFilterOptions users={users} currentUserId={currentUserId} />
                 </select>
+              ) : row.field === "newsletter" ? (
+                <select
+                  className="select"
+                  style={{ width: 180 }}
+                  value={row.value}
+                  onChange={(e) => {
+                    setLayout((prev) => ({
+                      ...prev,
+                      filterRows: prev.filterRows.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)),
+                    }));
+                    setPage(1);
+                  }}
+                >
+                  <option value="">—</option>
+                  <option value="true">Inscrit(e)</option>
+                  <option value="false">Non inscrit(e)</option>
+                </select>
               ) : row.field === "source" ? (
                 <select
                   className="select"
@@ -1208,6 +1234,14 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                 <option value="none">Non attribué</option>
               </select>
             </label>
+            <label>
+              Newsletter (NL)
+              <select className="select" value={bulkNewsletter} onChange={(e) => setBulkNewsletter(e.target.value)}>
+                <option value="">Ne pas changer</option>
+                <option value="true">Inscrire (cocher NL)</option>
+                <option value="false">Désinscrire (décocher NL)</option>
+              </select>
+            </label>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button className="btn secondary small" type="button" onClick={() => setBulkOpen(false)}>
                 Annuler
@@ -1263,6 +1297,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
               <span className={`badge ${PERSON_STATE_COLORS[selected.state]}`}>
                 {PERSON_STATE_LABELS[selected.state]}
               </span>
+              {selected.newsletter ? <span className="badge badge-green">NL</span> : null}
             </div>
             <div className="tabs">
               <button type="button" className={tab === "info" ? "active" : ""} onClick={() => setTab("info")}>
@@ -1286,6 +1321,7 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   const form = new FormData(e.currentTarget);
                   void saveContact({
                     civilite: String(form.get("civilite") ?? "") || null,
+                    newsletter: form.get("newsletter") === "on",
                     ownerId: String(form.get("ownerId") ?? "") || null,
                     prenom: String(form.get("prenom") ?? ""),
                     nom: String(form.get("nom") ?? ""),
@@ -1303,6 +1339,17 @@ export function ContactsWorkspace({ companies }: { companies: CompanyOption[] })
                   });
                 }}
               >
+                <label className="checkbox-inline" title="Cochez si la personne est inscrite à la newsletter">
+                  <input
+                    key={`nl-${selected.id}-${selected.newsletter}`}
+                    type="checkbox"
+                    name="newsletter"
+                    defaultChecked={selected.newsletter}
+                  />
+                  <span>
+                    <strong>NL</strong> — inscrit(e) à la newsletter
+                  </span>
+                </label>
                 <label>
                   Civilité
                   <select className="select" name="civilite" defaultValue={selected.civilite ?? ""}>

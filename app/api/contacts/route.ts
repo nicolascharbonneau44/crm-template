@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { createContact, listContacts } from "@/lib/contacts";
-import { isPersonCategory, isPersonState, normalizeCivilite, parseOptionalDate } from "@/lib/labels";
+import { isPersonCategory, isPersonState, normalizeCivilite, parseOptionalDate, parseYesNo } from "@/lib/labels";
 import type { ContactSort } from "@/lib/contacts";
 import { UserError, resolveUserRef } from "@/lib/users";
 
@@ -34,6 +34,7 @@ export async function GET(request: Request) {
       telephone: searchParams.get("telephone") ?? undefined,
       poste: searchParams.get("poste") ?? undefined,
       civilite: searchParams.get("civilite") ?? undefined,
+      newsletter: searchParams.get("newsletter") ? parseYesNo(searchParams.get("newsletter")) : undefined,
       ownerId,
     },
     {
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
   const contact = await createContact(
     {
       ownerId: ownerId === undefined ? (user?.id ?? null) : ownerId,
+      newsletter: parseYesNo(body.newsletter) ?? false,
       civilite,
       prenom,
       nom,
