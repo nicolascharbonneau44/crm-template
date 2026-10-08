@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { apeLabel } from "@/lib/ape";
 import { parseEffectif } from "@/lib/labels";
 import {
   createCompany,
@@ -30,7 +31,7 @@ const companyFields = {
   adresse: { type: ["string", "null"] },
   siteWeb: { type: ["string", "null"], description: "URL du site web" },
   siret: { type: ["string", "null"] },
-  codeNaf: { type: ["string", "null"], description: "Code NAF / APE, ex. 10.12Z" },
+  codeNaf: { type: ["string", "null"], description: "Code APE de l'INSEE (nomenclature NAF rév. 2), ex. 70.22Z ; « 7022Z » est aussi accepté. null pour effacer." },
   effectif: {
     type: ["integer", "null"],
     minimum: 0,
@@ -107,7 +108,7 @@ export const companyTools: McpTool[] = [
     title: "Rechercher des entreprises",
     kind: "read",
     description:
-      "Recherche les entreprises (nom, email, site web, SIRET, code NAF). Renvoie aussi l'effectif et le nombre de contacts rattachés. Sans filtre, liste toutes les entreprises par ordre alphabétique.",
+      "Recherche les entreprises (nom, email, site web, SIRET, code APE). Renvoie aussi l'effectif et le nombre de contacts rattachés. Sans filtre, liste toutes les entreprises par ordre alphabétique.",
     inputSchema: {
       type: "object",
       properties: {
@@ -122,7 +123,11 @@ export const companyTools: McpTool[] = [
         total: result.total,
         page,
         pageSize,
-        companies: result.data.map(({ _count, ...company }) => ({ ...company, contactsCount: _count.contacts })),
+        companies: result.data.map(({ _count, ...company }) => ({
+          ...company,
+          codeApeLibelle: apeLabel(company.codeNaf) ?? null,
+          contactsCount: _count.contacts,
+        })),
       };
     },
   },

@@ -32,7 +32,7 @@ export const CONTACT_FIELDS: ImportField[] = [
 export const COMPANY_FIELDS: ImportField[] = [
   { target: "company.nom", entity: "company", label: "Entreprise (nom)" },
   { target: "company.siret", entity: "company", label: "SIRET" },
-  { target: "company.codeNaf", entity: "company", label: "Code NAF" },
+  { target: "company.codeNaf", entity: "company", label: "Code APE" },
   { target: "company.effectif", entity: "company", label: "Effectif (nombre)" },
   { target: "company.siteWeb", entity: "company", label: "Site web" },
   { target: "company.linkedinUrl", entity: "company", label: "LinkedIn (entreprise)" },

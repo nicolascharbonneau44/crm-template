@@ -23,6 +23,8 @@ import {
   type CustomColumnRecord,
 } from "@/lib/custom-columns";
 import { CustomColumnModal, CustomFieldInputs } from "@/app/components/custom-column-modal";
+import { ApeCodePicker } from "@/app/components/ape-code-picker";
+import { apeLabel } from "@/lib/ape";
 
 type CompanyRow = {
   id: string;
@@ -51,7 +53,7 @@ const BASE_COLUMN_DEFS: ColumnDef[] = [
   { key: "email", label: "E-mail" },
   { key: "telephone", label: "Téléphone" },
   { key: "siret", label: "SIRET" },
-  { key: "codeNaf", label: "Code NAF" },
+  { key: "codeNaf", label: "Code APE" },
   { key: "effectif", label: "Effectif" },
   { key: "contactsCount", label: "Contacts" },
 ];
@@ -336,6 +338,10 @@ export function CompaniesWorkspace() {
     if (custom) return formatCustomFieldValue(getCustomFields(company)[key], custom.type);
     if (key === "contactsCount") return company._count?.contacts ?? company.contacts?.length ?? 0;
     if (key === "effectif") return company.effectif == null ? "—" : company.effectif.toLocaleString("fr-FR");
+    if (key === "codeNaf") {
+      if (!company.codeNaf) return "—";
+      return <span title={apeLabel(company.codeNaf) ?? "Code hors nomenclature INSEE"}>{company.codeNaf}</span>;
+    }
     const value = (company as unknown as Record<string, unknown>)[key];
     return value ? String(value) : "—";
   }
@@ -509,7 +515,7 @@ export function CompaniesWorkspace() {
                 <option value="email">E-mail</option>
                 <option value="siteWeb">Site</option>
                 <option value="siret">SIRET</option>
-                <option value="codeNaf">Code NAF</option>
+                <option value="codeNaf">Code APE</option>
               </select>
               <input
                 className="input"
@@ -567,7 +573,7 @@ export function CompaniesWorkspace() {
                 <option value="siteWeb">Site</option>
                 <option value="updatedAt">MAJ</option>
                 <option value="effectif">Effectif</option>
-                <option value="codeNaf">Code NAF</option>
+                <option value="codeNaf">Code APE</option>
                 <option value="contactsCount">Contacts</option>
               </select>
               <select
@@ -786,21 +792,21 @@ export function CompaniesWorkspace() {
                         <input className="input" name="siret" defaultValue={selected.siret ?? ""} />
                       </label>
                       <label>
-                        Code NAF
-                        <input className="input" name="codeNaf" placeholder="ex. 10.12Z" defaultValue={selected.codeNaf ?? ""} />
+                        Effectif (salariés)
+                        <input
+                          className="input"
+                          name="effectif"
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="ex. 50"
+                          defaultValue={selected.effectif ?? ""}
+                        />
                       </label>
                     </div>
                     <label>
-                      Effectif (nombre approximatif de salariés)
-                      <input
-                        className="input"
-                        name="effectif"
-                        type="number"
-                        min={0}
-                        step={1}
-                        placeholder="ex. 50"
-                        defaultValue={selected.effectif ?? ""}
-                      />
+                      Code APE
+                      <ApeCodePicker key={`ape-${selected.id}-${selected.codeNaf ?? ""}`} name="codeNaf" defaultValue={selected.codeNaf} />
                     </label>
                     <label>
                       LinkedIn

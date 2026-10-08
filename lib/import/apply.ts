@@ -1,5 +1,6 @@
 import type { Company, Contact, PersonCategory, PersonState } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { normalizeApe } from "@/lib/ape";
 import { createCompany, updateCompany, type CompanyInput } from "@/lib/companies";
 import { createContact, updateContact, type ContactInput } from "@/lib/contacts";
 import { listCustomColumns, normalizeCustomFieldInput, parseCustomFields } from "@/lib/custom-columns";
@@ -263,7 +264,7 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
           (company.siret && companyBySiret.get(digits(company.siret))) ||
           (company.nom && companyByName.get(normalizeHeader(company.nom))) ||
           null;
-        if (company.codeNaf) company.codeNaf = company.codeNaf.toUpperCase();
+        if (company.codeNaf) company.codeNaf = normalizeApe(company.codeNaf) ?? "";
         let effectif: number | undefined;
         if (company.effectif) {
           const parsed = parseEffectif(company.effectif);

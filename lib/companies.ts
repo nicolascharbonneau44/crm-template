@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseCustomFields, stringifyCustomFields } from "@/lib/custom-columns";
+import { normalizeApe } from "@/lib/ape";
 
 export type CompanyFilters = {
   q?: string;
@@ -106,7 +107,7 @@ export async function createCompany(input: CompanyInput) {
       adresse: cleanOptional(input.adresse) ?? null,
       siteWeb: cleanOptional(input.siteWeb) ?? null,
       siret: cleanOptional(input.siret) ?? null,
-      codeNaf: cleanOptional(input.codeNaf)?.toUpperCase() ?? null,
+      codeNaf: normalizeApe(cleanOptional(input.codeNaf)) ?? null,
       effectif: input.effectif ?? null,
       linkedinUrl: cleanOptional(input.linkedinUrl) ?? null,
       description: cleanOptional(input.description) ?? null,
@@ -128,7 +129,7 @@ export async function updateCompany(id: string, input: CompanyInput) {
       ...(input.adresse !== undefined ? { adresse: cleanOptional(input.adresse) } : {}),
       ...(input.siteWeb !== undefined ? { siteWeb: cleanOptional(input.siteWeb) } : {}),
       ...(input.siret !== undefined ? { siret: cleanOptional(input.siret) } : {}),
-      ...(input.codeNaf !== undefined ? { codeNaf: cleanOptional(input.codeNaf)?.toUpperCase() ?? null } : {}),
+      ...(input.codeNaf !== undefined ? { codeNaf: normalizeApe(cleanOptional(input.codeNaf)) ?? null } : {}),
       ...(input.effectif !== undefined ? { effectif: input.effectif } : {}),
       ...(input.linkedinUrl !== undefined ? { linkedinUrl: cleanOptional(input.linkedinUrl) } : {}),
       ...(input.description !== undefined ? { description: cleanOptional(input.description) } : {}),
