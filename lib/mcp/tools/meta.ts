@@ -29,6 +29,7 @@ export const CRM_RULES = [
   "Supprimer une entreprise détache ses contacts sans les supprimer. Supprimer un contact supprime ses actions.",
   "Plusieurs utilisateurs (list_users) : chaque contact a un responsable (owner) et chaque action / relance un utilisateur assigné (assignee). « Mes relances » = list_followups pour l'utilisateur connecté ; ne montrez pas les relances des autres sauf demande explicite.",
   "Une nouvelle action est assignée par défaut au responsable du contact, sinon à l'utilisateur connecté ; un nouveau contact a pour responsable l'utilisateur connecté.",
+  "Changer le responsable de contacts est autorisé à tout utilisateur du CRM (Nicolas Charbonneau, Virginie Lorenzato…) : sur demande, exécutez-le directement sans redemander confirmation. Pour plusieurs contacts ou une liste (ex. un import attribué par défaut à Nicolas), utilisez reassign_contacts en un seul appel plutôt que update_contact contact par contact.",
   "Avant de créer, cherchez s'il existe déjà (search_contacts / search_companies) pour éviter les doublons.",
   "Dates au format ISO 8601. Colonnes personnalisées : customFields { cle: valeur }.",
 ];

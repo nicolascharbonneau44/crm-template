@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { createContact, deleteContact, listContacts, updateContact, type ContactInput } from "@/lib/contacts";
 import { CIVILITES, PERSON_CATEGORIES, PERSON_STATES, normalizeCivilite } from "@/lib/labels";
 import { resolveCompanyLink } from "@/lib/mcp/tools/companies";
+import { dayBounds } from "@/lib/dates";
+import { hasSelection, reassignContacts, type ReassignSelection } from "@/lib/reassign";
 import {
   ToolError,
   customFieldsArg,
@@ -120,6 +122,19 @@ async function contactInput(args: ToolArgs): Promise<ContactInput> {
     prochaineActionDate: nullableDate(args, "prochaineActionDate"),
     customFields: await customFieldsArg(args, "contact"),
   };
+}
+
+/** « 2026-10-08 » → début (ou fin) de cette journée à l'heure de l'équipe ; date-heure ISO acceptée telle quelle. */
+function dateBoundArg(args: ToolArgs, key: string, bound: "start" | "end") {
+  const value = optionalString(args, key)?.trim();
+  if (!value) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const bounds = dayBounds(new Date(`${value}T12:00:00Z`));
+    return bound === "start" ? bounds.start : bounds.end;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new ToolError(`« ${key} » doit être une date, ex. 2026-10-08.`);
+  return date;
 }
 
 async function findContactByEmail(email: string, excludeId?: string) {
@@ -261,6 +276,64 @@ export const contactTools: McpTool[] = [
       );
       if (!contact) throw new ToolError(`Contact introuvable (id ${id}).`);
       return { contact: contactSummary(contact), ...(link.createdCompany ? { entrepriseCreee: link.createdCompany } : {}) };
+    },
+  },
+  {
+    name: "reassign_contacts",
+    title: "Changer le responsable de contacts (en masse)",
+    kind: "write",
+    description:
+      "Change en une seule fois le responsable d'une liste de contacts, par ex. après un import attribué par défaut à Nicolas Charbonneau : « passe à Virginie tous les contacts importés aujourd'hui », « donne-moi les contacts source Salon de Nicolas ». Sélection par contactIds et/ou filtres (combinés) ; au moins un critère, ou all=true. Les relances non terminées de l'ancien responsable suivent le contact (moveOpenActions, true par défaut). Opération sans risque et réversible : quand un utilisateur du CRM (Nicolas Charbonneau, Virginie Lorenzato…) demande un changement de responsable, l'exécuter directement, sans redemander confirmation, puis indiquer le nombre de contacts modifiés.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        owner: { ...userRefSchema, description: `Nouveau responsable. ${userRefSchema.description}` },
+        contactIds: { type: "array", items: { type: "string" }, description: "Identifiants des contacts à réattribuer" },
+        currentOwner: {
+          ...userRefSchema,
+          description: `Uniquement les contacts de ce responsable actuel (null = non attribués). ${userRefSchema.description}`,
+        },
+        createdFrom: {
+          type: "string",
+          description: "Contacts créés (ou importés) à partir de cette date, ex. 2026-10-08 (début de journée, heure de Paris) ou date-heure ISO",
+        },
+        createdTo: { type: "string", description: "Contacts créés jusqu'à cette date incluse, ex. 2026-10-08" },
+        source: { type: "string", description: "Source contenant ce texte (LinkedIn, Salon, Sortlist…)" },
+        query: { type: "string", description: "Texte recherché (nom, email, entreprise…)" },
+        category: { type: "string", enum: PERSON_CATEGORIES },
+        state: { type: "string", enum: PERSON_STATES },
+        companyId: { type: "string" },
+        newsletter: { type: "boolean" },
+        all: { type: "boolean", description: "true pour réattribuer TOUS les contacts du CRM (seulement si demandé explicitement)" },
+        moveOpenActions: { type: "boolean", description: "Transférer aussi les relances non terminées (true par défaut)" },
+      },
+      required: ["owner"],
+    },
+    async handler(args, ctx) {
+      if (!("owner" in args)) throw new ToolError("Paramètre « owner » requis (nouveau responsable, ou null).");
+      const owner = (await userRefArg(args, "owner", ctx)) ?? null;
+      const contactIds = args.contactIds;
+      if (contactIds !== undefined && (!Array.isArray(contactIds) || contactIds.some((id) => typeof id !== "string"))) {
+        throw new ToolError("« contactIds » doit être une liste d'identifiants.");
+      }
+      const selection: ReassignSelection = {
+        ids: contactIds as string[] | undefined,
+        ownerId: "currentOwner" in args ? ((await userRefArg(args, "currentOwner", ctx)) ?? null) : undefined,
+        createdFrom: dateBoundArg(args, "createdFrom", "start"),
+        createdTo: dateBoundArg(args, "createdTo", "end"),
+        source: optionalString(args, "source"),
+        q: optionalString(args, "query"),
+        category: optionalEnum(args, "category", PERSON_CATEGORIES),
+        state: optionalEnum(args, "state", PERSON_STATES),
+        companyId: optionalString(args, "companyId"),
+        newsletter: optionalBoolean(args, "newsletter"),
+      };
+      if (!hasSelection(selection) && optionalBoolean(args, "all") !== true) {
+        throw new ToolError("Précisez quels contacts réattribuer (contactIds ou un filtre), ou all=true pour tout le CRM.");
+      }
+      const result = await reassignContacts(selection, owner, optionalBoolean(args, "moveOpenActions") ?? true);
+      const ownerUser = owner ? await prisma.user.findUnique({ where: { id: owner }, select: { email: true, fullName: true } }) : null;
+      return { nouveauResponsable: ownerUser ? userDisplayName(ownerUser) : "Non attribué", ...result };
     },
   },
   {

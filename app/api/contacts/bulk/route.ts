@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { bulkDeleteContacts, bulkUpdateContacts } from "@/lib/contacts";
+import { reassignContacts } from "@/lib/reassign";
 import { isPersonCategory, isPersonState, parseYesNo } from "@/lib/labels";
 import { UserError, resolveUserRef } from "@/lib/users";
 
@@ -45,8 +46,15 @@ export async function POST(request: Request) {
     if (!("category" in patch) && !("state" in patch) && !("ownerId" in patch) && !("newsletter" in patch)) {
       return NextResponse.json({ error: "Rien à modifier" }, { status: 400 });
     }
-    const updated = await bulkUpdateContacts(ids, patch as never, user?.id);
-    return NextResponse.json({ ok: true, count: updated.length });
+    // Le responsable passe par reassignContacts : les relances en cours suivent le contact.
+    let actionsMoved = 0;
+    if ("ownerId" in patch) {
+      const { ownerId } = patch as { ownerId?: string | null };
+      actionsMoved = (await reassignContacts({ ids }, ownerId ?? null)).relancesTransferees;
+      delete (patch as { ownerId?: unknown }).ownerId;
+    }
+    const updated = Object.keys(patch).length ? await bulkUpdateContacts(ids, patch as never, user?.id) : ids;
+    return NextResponse.json({ ok: true, count: updated.length, actionsMoved });
   }
 
   return NextResponse.json({ error: "Action inconnue" }, { status: 400 });

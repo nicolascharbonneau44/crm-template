@@ -41,7 +41,7 @@ const SORTABLE: Record<string, Prisma.ContactOrderByWithRelationInput> = {
   company: { company: { nom: "asc" } },
 };
 
-function buildWhere(filters: ContactFilters = {}): Prisma.ContactWhereInput {
+export function buildWhere(filters: ContactFilters = {}): Prisma.ContactWhereInput {
   const where: Prisma.ContactWhereInput = {};
   const and: Prisma.ContactWhereInput[] = [];
 
