@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { apeLabel } from "@/lib/ape";
+import { createCompanyWithApe, searchSirene, type ApeLookup } from "@/lib/company-ape";
 import { parseEffectif } from "@/lib/labels";
 import {
   createCompany,
@@ -55,6 +56,22 @@ export async function findCompanyByName(name: string) {
  * Règle CRM : un contact appartient à 0 ou 1 entreprise.
  * companyId (prioritaire) ou companyName (recherche par nom, création si absente).
  */
+/** Résultat de la recherche du code APE à joindre à la réponse d'une création d'entreprise. */
+export function apeReport(ape: ApeLookup) {
+  if (ape.status === "provided") return { codeApe: { code: ape.code, libelle: ape.label } };
+  if (ape.status === "found") {
+    return {
+      codeApe: {
+        code: ape.code,
+        libelle: ape.label,
+        origine: `Annuaire des entreprises (SIRENE), trouvé par ${ape.source === "siret" ? "SIRET" : "nom"}`,
+        entreprise: ape.entreprise,
+      },
+    };
+  }
+  return { codeApe: null, alerte: ape.message, ...(ape.candidates.length ? { pistes: ape.candidates } : {}) };
+}
+
 export async function resolveCompanyLink(args: ToolArgs) {
   if ("companyId" in args && args.companyId !== undefined) {
     if (args.companyId === null || args.companyId === "") return { companyId: null as string | null };
@@ -69,8 +86,8 @@ export async function resolveCompanyLink(args: ToolArgs) {
 
   const existing = await findCompanyByName(companyName);
   if (existing) return { companyId: existing.id };
-  const created = await createCompany({ nom: companyName });
-  return { companyId: created.id, createdCompany: { id: created.id, nom: created.nom } };
+  const { company: created, ape } = await createCompanyWithApe({ nom: companyName });
+  return { companyId: created.id, createdCompany: { id: created.id, nom: created.nom, ...apeReport(ape) } };
 }
 
 function effectifArg(args: ToolArgs) {
@@ -156,11 +173,35 @@ export const companyTools: McpTool[] = [
     },
   },
   {
+    name: "search_sirene",
+    title: "Rechercher dans l'annuaire officiel des entreprises",
+    kind: "read",
+    description:
+      "Interroge l'annuaire officiel des entreprises françaises (base SIRENE de l'INSEE) : nom, SIREN ou SIRET → entreprises actives avec SIREN, SIRET du siège, ville et code APE. Sert surtout à trouver le code APE d'une fiche société (puis update_company avec codeNaf). Ajoutez la ville ou le code postal à la recherche pour départager les homonymes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Nom de l'entreprise (éventuellement + ville), SIREN ou SIRET" },
+        limit: { type: "integer", minimum: 1, maximum: 25, description: "Nombre de résultats (5 par défaut)" },
+      },
+      required: ["query"],
+    },
+    async handler(args) {
+      const query = requireString(args, "query");
+      const limit = typeof args.limit === "number" ? args.limit : 5;
+      try {
+        return { entreprises: await searchSirene(query, limit) };
+      } catch (error) {
+        throw new ToolError(`Annuaire des entreprises indisponible : ${error instanceof Error ? error.message : "erreur"}.`);
+      }
+    },
+  },
+  {
     name: "create_company",
     title: "Créer une entreprise",
     kind: "write",
     description:
-      "Crée une entreprise. Refuse si une entreprise du même nom existe déjà (renvoie son id), sauf allowDuplicate=true. Pour rattacher des contacts, utilisez ensuite update_contact avec companyId.",
+      "Crée une entreprise. Refuse si une entreprise du même nom existe déjà (renvoie son id), sauf allowDuplicate=true. Pour rattacher des contacts, utilisez ensuite update_contact avec companyId. Code APE requis pour toute nouvelle fiche : sans codeNaf fourni, le CRM le cherche dans l'annuaire officiel des entreprises (SIRENE) par SIRET ou par nom exact. Si la réponse contient « alerte », cherchez le code (search_sirene, recherche web, informations données par l'utilisateur) et enregistrez-le avec update_company ; si vous ne le trouvez pas, affichez le message d'alerte tel quel à l'utilisateur.",
     inputSchema: {
       type: "object",
       properties: {
@@ -179,7 +220,8 @@ export const companyTools: McpTool[] = [
           );
         }
       }
-      return createCompany({ ...(await companyInput(args)), nom });
+      const { company, ape } = await createCompanyWithApe({ ...(await companyInput(args)), nom });
+      return { ...company, ...apeReport(ape) };
     },
   },
   {

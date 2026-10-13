@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createCompany, listCompanies } from "@/lib/companies";
+import { listCompanies } from "@/lib/companies";
+import { createCompanyWithApe } from "@/lib/company-ape";
 import type { CompanySort } from "@/lib/companies";
 import { parseEffectif } from "@/lib/labels";
 
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
       siteWeb: searchParams.get("siteWeb") ?? undefined,
       siret: searchParams.get("siret") ?? undefined,
       codeNaf: searchParams.get("codeNaf") ?? undefined,
+      missingApe: searchParams.get("missingApe") === "1",
     },
     {
       sorts,
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Effectif invalide (nombre attendu)" }, { status: 400 });
   }
   try {
-    const company = await createCompany({
+    const { company, ape } = await createCompanyWithApe({
       nom: body.nom,
       email: body.email,
       telephone: body.telephone,
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
           ? (body.customFields as Record<string, unknown>)
           : undefined,
     });
-    return NextResponse.json(company, { status: 201 });
+    return NextResponse.json({ ...company, ape }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Création impossible" },

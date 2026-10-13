@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SidePeek } from "@/app/components/side-peek";
 import { contactDisplayName } from "@/lib/labels";
@@ -25,6 +25,7 @@ import {
 import { CustomColumnModal, CustomFieldInputs } from "@/app/components/custom-column-modal";
 import { ApeCodePicker } from "@/app/components/ape-code-picker";
 import { apeLabel } from "@/lib/ape";
+import type { ApeLookup, SireneCandidate } from "@/lib/company-ape";
 
 type CompanyRow = {
   id: string;
@@ -103,6 +104,13 @@ export function CompaniesWorkspace() {
   const [tab, setTab] = useState<"info" | "notes" | "contacts">("info");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [missingApeOnly, setMissingApeOnly] = useState(false);
+  // Code APE : message après création, recherche dans l'annuaire, valeur imposée au sélecteur.
+  const [apeNotice, setApeNotice] = useState<{ kind: "found" | "missing"; text: string } | null>(null);
+  const [apeCandidates, setApeCandidates] = useState<SireneCandidate[]>([]);
+  const [apeSearching, setApeSearching] = useState(false);
+  const [apeOverride, setApeOverride] = useState<{ code: string; n: number } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     setLayout(loadLayout(STORAGE_KEY, DEFAULT_LAYOUT));
@@ -154,6 +162,7 @@ export function CompaniesWorkspace() {
       pageSize: String(layout.pageSize),
     });
     if (q.trim()) params.set("q", q.trim());
+    if (missingApeOnly) params.set("missingApe", "1");
     for (const row of layout.filterRows) {
       if (row.value) params.set(row.field, row.value);
     }
@@ -170,7 +179,7 @@ export function CompaniesWorkspace() {
       setTotal(data.total ?? 0);
     }
     setLoading(false);
-  }, [layout.filterRows, layout.pageSize, layout.sortRows, page, q]);
+  }, [layout.filterRows, layout.pageSize, layout.sortRows, missingApeOnly, page, q]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -199,13 +208,21 @@ export function CompaniesWorkspace() {
     setCustomFieldDraft(getCustomFields(data));
     setCreating(false);
     setTab("info");
+    resetApe();
     const params = new URLSearchParams(searchParams.toString());
     params.set("company", id);
     router.replace(`/companies?${params.toString()}`);
   }
 
+  function resetApe() {
+    setApeNotice(null);
+    setApeCandidates([]);
+    setApeOverride(null);
+  }
+
   function closePeek() {
     setSelected(null);
+    resetApe();
     setCreating(false);
     const params = new URLSearchParams(searchParams.toString());
     params.delete("company");
@@ -215,6 +232,7 @@ export function CompaniesWorkspace() {
 
   function openCreate() {
     setCreating(true);
+    resetApe();
     setSelected({
       id: "",
       nom: "",
@@ -258,11 +276,60 @@ export function CompaniesWorkspace() {
       setError(data.error ?? "Enregistrement impossible");
       return;
     }
-    const saved = await res.json();
+    const { ape, ...saved } = (await res.json()) as CompanyRow & { ape?: ApeLookup };
     setSelected(saved);
     setCustomFieldDraft(getCustomFields(saved));
     setCreating(false);
+    resetApe();
+    if (ape?.status === "found") {
+      setApeNotice({
+        kind: "found",
+        text: `Code APE trouvé automatiquement dans l'annuaire des entreprises : ${ape.code} — ${ape.label ?? ""} (${ape.entreprise.nom}${ape.entreprise.ville ? `, ${ape.entreprise.ville}` : ""}). Vérifiez qu'il s'agit bien de la bonne société.`,
+      });
+    } else if (ape?.status === "missing") {
+      setApeNotice({ kind: "missing", text: ape.message });
+      setApeCandidates(ape.candidates);
+    }
     await fetchCompanies();
+  }
+
+  async function searchApe() {
+    const form = formRef.current;
+    if (!form) return;
+    const value = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "";
+    setApeSearching(true);
+    setApeCandidates([]);
+    const params = new URLSearchParams({ nom: value("nom"), siret: value("siret"), adresse: value("adresse") });
+    const res = await fetch(`/api/sirene?${params.toString()}`);
+    setApeSearching(false);
+    if (!res.ok) {
+      setApeNotice({ kind: "missing", text: "Annuaire des entreprises indisponible pour le moment, merci d'ajouter le code APE." });
+      return;
+    }
+    const ape = (await res.json()) as ApeLookup;
+    if (ape.status === "found") {
+      applyApeCandidate(ape.entreprise);
+      setApeNotice({
+        kind: "found",
+        text: `Trouvé : ${ape.entreprise.nom}${ape.entreprise.ville ? ` (${ape.entreprise.ville})` : ""} — ${ape.code} ${ape.label ?? ""}. Pensez à enregistrer.`,
+      });
+    } else if (ape.status === "missing") {
+      setApeCandidates(ape.candidates);
+      setApeNotice({
+        kind: "missing",
+        text: ape.candidates.length
+          ? "Plusieurs sociétés possibles : choisissez la bonne ci-dessous, ou sélectionnez le code APE dans la liste."
+          : "Aucune société trouvée dans l'annuaire avec ce nom. Ajoutez le SIRET ou choisissez le code APE dans la liste.",
+      });
+    }
+  }
+
+  function applyApeCandidate(candidate: SireneCandidate) {
+    if (!candidate.codeApe) return;
+    setApeOverride((prev) => ({ code: candidate.codeApe as string, n: (prev?.n ?? 0) + 1 }));
+    const siret = formRef.current?.elements.namedItem("siret") as HTMLInputElement | null;
+    if (siret && !siret.value.trim() && candidate.siret) siret.value = candidate.siret;
+    setApeCandidates([]);
   }
 
   async function deleteCompany() {
@@ -468,6 +535,17 @@ export function CompaniesWorkspace() {
             Supprimer ({selectedIds.length})
           </button>
         ) : null}
+        <button
+          className={`btn small ${missingApeOnly ? "" : "soft"}`}
+          type="button"
+          title="Afficher seulement les fiches société sans code APE"
+          onClick={() => {
+            setMissingApeOnly((v) => !v);
+            setPage(1);
+          }}
+        >
+          Sans code APE
+        </button>
         <button className="btn" type="button" onClick={openCreate}>
           Nouvelle entreprise
         </button>
@@ -760,6 +838,7 @@ export function CompaniesWorkspace() {
               </div>
             ) : (
               <form
+                ref={formRef}
                 className="form-grid"
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -804,10 +883,41 @@ export function CompaniesWorkspace() {
                         />
                       </label>
                     </div>
-                    <label>
-                      Code APE
-                      <ApeCodePicker key={`ape-${selected.id}-${selected.codeNaf ?? ""}`} name="codeNaf" defaultValue={selected.codeNaf} />
-                    </label>
+                    {apeNotice ? <p className={`ape-notice ${apeNotice.kind}`}>{apeNotice.text}</p> : null}
+                    <div className="ape-field">
+                      <div className="ape-field-head">
+                        <span>Code APE</span>
+                        <button className="btn ghost small" type="button" disabled={apeSearching} onClick={() => void searchApe()}>
+                          {apeSearching ? "Recherche…" : "Rechercher dans l'annuaire"}
+                        </button>
+                      </div>
+                      <ApeCodePicker
+                        key={`ape-${selected.id}-${selected.codeNaf ?? ""}-${apeOverride?.n ?? 0}`}
+                        name="codeNaf"
+                        defaultValue={apeOverride?.code ?? selected.codeNaf}
+                      />
+                      {apeCandidates.length ? (
+                        <ul className="ape-candidates">
+                          {apeCandidates.map((c) => (
+                            <li key={c.siren}>
+                              <div>
+                                <strong>{c.nom}</strong>
+                                <span className="muted">
+                                  {" "}
+                                  {[c.ville && `${c.ville}${c.codePostal ? ` (${c.codePostal})` : ""}`, `SIREN ${c.siren}`].filter(Boolean).join(" · ")}
+                                </span>
+                                <div className="muted">
+                                  {c.codeApe} — {c.libelleApe}
+                                </div>
+                              </div>
+                              <button className="btn soft small" type="button" onClick={() => applyApeCandidate(c)}>
+                                Choisir
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
                     <label>
                       LinkedIn
                       <input className="input" name="linkedinUrl" defaultValue={selected.linkedinUrl ?? ""} />

@@ -9,6 +9,8 @@ export type CompanyFilters = {
   siteWeb?: string;
   siret?: string;
   codeNaf?: string;
+  /** Uniquement les fiches sans code APE. */
+  missingApe?: boolean;
 };
 
 export type CompanySort = { field: string; direction: "asc" | "desc" };
@@ -32,6 +34,7 @@ function buildWhere(filters: CompanyFilters = {}): Prisma.CompanyWhereInput {
   if (filters.siteWeb?.trim()) and.push({ siteWeb: { contains: filters.siteWeb.trim() } });
   if (filters.siret?.trim()) and.push({ siret: { contains: filters.siret.trim() } });
   if (filters.codeNaf?.trim()) and.push({ codeNaf: { contains: filters.codeNaf.trim() } });
+  if (filters.missingApe) and.push({ OR: [{ codeNaf: null }, { codeNaf: "" }] });
   if (and.length) where.AND = and;
   return where;
 }

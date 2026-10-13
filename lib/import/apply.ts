@@ -1,6 +1,7 @@
 import type { Company, Contact, PersonCategory, PersonState } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeApe } from "@/lib/ape";
+import { enrichApeInBackground } from "@/lib/company-ape";
 import { createCompany, updateCompany, type CompanyInput } from "@/lib/companies";
 import { createContact, updateContact, type ContactInput } from "@/lib/contacts";
 import { listCustomColumns, normalizeCustomFieldInput, parseCustomFields } from "@/lib/custom-columns";
@@ -403,5 +404,14 @@ export async function runImport(body: unknown, userId?: string): Promise<ImportR
     }
   }
 
+  const withoutApe = result.companies.createdIds.length
+    ? await prisma.company.findMany({ where: { id: { in: result.companies.createdIds }, codeNaf: null }, select: { id: true } })
+    : [];
+  if (withoutApe.length) {
+    enrichApeInBackground(withoutApe.map((c) => c.id));
+    result.warnings.push(
+      "Nouvelles fiches société sans code APE : recherche automatique en cours dans l'annuaire des entreprises (SIRENE). Merci d'ajouter le code APE de celles qui resteront sans code (filtre « Sans code APE » dans Entreprises).",
+    );
+  }
   return result;
 }

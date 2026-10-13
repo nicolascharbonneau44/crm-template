@@ -31,6 +31,7 @@ export const CRM_RULES = [
   "Une nouvelle action est assignée par défaut au responsable du contact, sinon à l'utilisateur connecté ; un nouveau contact a pour responsable l'utilisateur connecté.",
   "Changer le responsable de contacts est autorisé à tout utilisateur du CRM (Nicolas Charbonneau, Virginie Lorenzato…) : sur demande, exécutez-le directement sans redemander confirmation. Pour plusieurs contacts ou une liste (ex. un import attribué par défaut à Nicolas), utilisez reassign_contacts en un seul appel plutôt que update_contact contact par contact.",
   "Avant de créer, cherchez s'il existe déjà (search_contacts / search_companies) pour éviter les doublons.",
+  "Toute nouvelle fiche société doit avoir un code APE (champ codeNaf). Utilisez le code donné par l'utilisateur s'il y en a un ; sinon le CRM le cherche lui-même dans l'annuaire officiel (SIRENE). Si la création renvoie « alerte », cherchez-le (search_sirene, recherche web, informations de l'utilisateur) puis update_company ; à défaut, affichez à l'utilisateur : « Vous venez de créer une nouvelle fiche société, merci d'ajouter le code APE. »",
   "Dates au format ISO 8601. Colonnes personnalisées : customFields { cle: valeur }.",
 ];
 

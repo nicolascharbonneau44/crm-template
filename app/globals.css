@@ -1489,3 +1489,52 @@ tr.row-link:hover {
   color: var(--muted);
   cursor: default;
 }
+
+/* Code APE : message après création + recherche dans l'annuaire */
+.ape-notice {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.ape-notice.found {
+  background: var(--green);
+  color: var(--green-text);
+}
+.ape-notice.missing {
+  background: var(--orange);
+  color: var(--orange-text);
+  font-weight: 600;
+}
+.ape-field {
+  display: grid;
+  gap: 6px;
+}
+.ape-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ape-candidates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.ape-candidates li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.ape-field-head span {
+  font-size: 12px;
+  color: var(--muted);
+}
